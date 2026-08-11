@@ -1,6 +1,15 @@
 const projects = [
   {
     index: "01",
+    title: "Premier League Winner Predictor",
+    description:
+      "Built a time-decayed Dixon-Coles goal model and Monte Carlo simulator that forecasts remaining matches, final positions, expected points, and title, top-four, and relegation probabilities.",
+    outcome: "20K Season Simulations",
+    tags: ["Python", "Dixon-Coles", "Monte Carlo", "Streamlit"],
+    color: "blue",
+  },
+  {
+    index: "02",
     title: "Real-Time Human Motion Tracking",
     description:
       "Built two complementary motion-tracking pipelines: quaternion-based IMU orientation with sensor fusion, and computer vision for elbow and wrist joint-angle estimation.",
@@ -9,7 +18,7 @@ const projects = [
     color: "orange",
   },
   {
-    index: "02",
+    index: "03",
     title: "C++ Turn-Based Strategy Game",
     description:
       "Designed player and enemy class systems, battle mechanics, and state management using inheritance and polymorphism for a structured, extensible game architecture.",
@@ -18,7 +27,7 @@ const projects = [
     color: "purple",
   },
   {
-    index: "03",
+    index: "04",
     title: "Statistical Reports in R",
     description:
       "Created analysis pipelines for survey and experimental data, applying regression, hypothesis testing, and ANOVA with clear visual reporting.",
@@ -30,9 +39,9 @@ const projects = [
 
 const toolkit = [
   { group: "Programming", items: ["Python", "R", "C++", "Object-oriented design"] },
-  { group: "Data & statistics", items: ["Regression", "Hypothesis testing", "ANOVA", "Probability theory"] },
+  { group: "Data & statistics", items: ["pandas / NumPy", "SciPy", "Regression", "Hypothesis testing / ANOVA"] },
   { group: "Vision & sensing", items: ["OpenCV", "MediaPipe", "Sensor fusion", "Quaternion tracking"] },
-  { group: "Tools", items: ["Git / GitHub", "Jupyter", "Power BI", "Excel"] },
+  { group: "Tools", items: ["Git / GitHub", "Jupyter", "Streamlit / Plotly", "Power BI / Excel"] },
 ];
 
 function ArrowIcon() {
@@ -104,7 +113,7 @@ export default function Home() {
       <section className="proof-strip" aria-label="Highlights">
         <div><strong>6.4</strong><span>GPA / 7.0</span></div>
         <div><strong>2026</strong><span>Research scholarship</span></div>
-        <div><strong>03</strong><span>Featured builds</span></div>
+        <div><strong>04</strong><span>Featured builds</span></div>
         <p>Research-minded.<br />Built in practice.</p>
       </section>
 
@@ -113,8 +122,8 @@ export default function Home() {
           <p className="eyebrow">Research &amp; selected work</p>
           <h2>Built beyond the classroom.</h2>
           <p>
-            From real-time motion tracking to statistical analysis and
-            object-oriented software design.
+            From probabilistic football forecasting and real-time motion
+            tracking to statistics and object-oriented software design.
           </p>
         </div>
         <div className="project-grid">
@@ -153,9 +162,10 @@ export default function Home() {
             and OpenCV under the supervision of Mr. Siu Wai Ho.
           </p>
           <p>
-            I enjoy combining statistical reasoning with practical software
-            engineering, and I&apos;m looking for opportunities to keep learning
-            while contributing to useful data and ML systems.
+            I also build probabilistic forecasting tools, including a Premier
+            League predictor that combines Dixon-Coles modelling with Monte
+            Carlo simulation. I&apos;m looking for opportunities to contribute to
+            useful data and ML systems while continuing to learn.
           </p>
         </div>
       </section>
