@@ -74,7 +74,7 @@ nav a:hover, footer a:hover, .text-link:hover { opacity: .55; }
   text-transform: uppercase;
 }
 
-.eyebrow::before { content: "✦"; margin-right: 9px; color: var(--orange); }
+.eyebrow::before { content: "*"; margin-right: 9px; color: var(--orange); }
 
 h1, h2, h3, p { margin-top: 0; }
 h1 {

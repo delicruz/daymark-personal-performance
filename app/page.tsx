@@ -13,7 +13,7 @@ const projects = [
     title: "Customer Churn, Explained",
     description:
       "Compared interpretable classification models and translated SHAP insights into retention actions for a subscription business.",
-    outcome: "0.87 ROC–AUC",
+    outcome: "0.87 ROC-AUC",
     tags: ["scikit-learn", "SHAP", "SQL"],
     color: "purple",
   },
@@ -36,7 +36,7 @@ const toolkit = [
 ];
 
 function ArrowIcon() {
-  return <span aria-hidden="true">↗</span>;
+  return <span aria-hidden="true">-&gt;</span>;
 }
 
 export default function Home() {
@@ -59,7 +59,7 @@ export default function Home() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">Data science student · Adelaide, AU</p>
+          <p className="eyebrow">Data science student / Adelaide, AU</p>
           <h1>
             I turn messy data
             <br />
@@ -67,14 +67,14 @@ export default function Home() {
           </h1>
           <p className="hero-intro">
             Aspiring data scientist and machine learning engineer building
-            thoughtful, useful models — from first question to final story.
+            thoughtful, useful models - from first question to final story.
           </p>
           <div className="hero-actions">
             <a className="button button-primary" href="#work">
               Explore my work <ArrowIcon />
             </a>
             <a className="text-link" href="#contact">
-              Get in touch <span aria-hidden="true">→</span>
+              Get in touch <span aria-hidden="true">-&gt;</span>
             </a>
           </div>
         </div>
@@ -94,8 +94,8 @@ export default function Home() {
             ))}
           </div>
           <div className="poster-footer">
-            <span>TRAIN → TEST</span>
-            <span>↑ 12.4%</span>
+            <span>TRAIN / TEST</span>
+            <span>+12.4%</span>
           </div>
           <div className="poster-sticker">LEARN<br />BUILD<br />ITERATE</div>
         </div>
@@ -104,7 +104,7 @@ export default function Home() {
       <section className="proof-strip" aria-label="Highlights">
         <div><strong>03</strong><span>End-to-end projects</span></div>
         <div><strong>12+</strong><span>Models explored</span></div>
-        <div><strong>∞</strong><span>Questions to ask</span></div>
+        <div><strong>ALWAYS</strong><span>Questions to ask</span></div>
         <p>Curious by default.<br />Rigorous by design.</p>
       </section>
 
@@ -144,8 +144,8 @@ export default function Home() {
         </div>
         <div className="about-copy">
           <p className="lead">
-            I’m a data science student who enjoys finding the signal in the
-            noise — and explaining it without the jargon.
+            I&apos;m a data science student who enjoys finding the signal in the
+            noise - and explaining it without the jargon.
           </p>
           <p>
             My interests sit at the intersection of machine learning,
@@ -154,7 +154,7 @@ export default function Home() {
             genuinely useful.
           </p>
           <p>
-            Right now, I’m looking for internships and graduate opportunities
+            Right now, I&apos;m looking for internships and graduate opportunities
             where I can learn from a strong team and contribute from day one.
           </p>
         </div>
@@ -179,24 +179,24 @@ export default function Home() {
       </section>
 
       <section className="contact section" id="contact">
-        <p className="eyebrow">Let’s make something useful</p>
+        <p className="eyebrow">Let&apos;s make something useful</p>
         <h2>Have a problem<br />worth solving?</h2>
         <a className="contact-link" href="mailto:hello@yourname.dev">
           hello@yourname.dev <ArrowIcon />
         </a>
         <div className="contact-note">
           <span>Available for internships &amp; graduate roles</span>
-          <span>Based in Adelaide · Open to remote</span>
+          <span>Based in Adelaide / Open to remote</span>
         </div>
       </section>
 
       <footer>
-        <span>© 2026 Dung Nguyen</span>
+        <span>(c) 2026 Dung Nguyen</span>
         <div>
           <a href="https://github.com/" target="_blank" rel="noreferrer">GitHub <ArrowIcon /></a>
           <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn <ArrowIcon /></a>
         </div>
-        <a href="#top">Back to top ↑</a>
+        <a href="#top">Back to top</a>
       </footer>
     </main>
   );
