@@ -111,7 +111,7 @@ export default function Home() {
       </section>
 
       <section className="proof-strip" aria-label="Highlights">
-        <div><strong>6.4</strong><span>GPA / 7.0</span></div>
+        <div><strong>BSc</strong><span>Computer Science</span></div>
         <div><strong>2026</strong><span>Research scholarship</span></div>
         <div><strong>04</strong><span>Featured builds</span></div>
         <p>Research-minded.<br />Built in practice.</p>
@@ -153,8 +153,8 @@ export default function Home() {
         </div>
         <div className="about-copy">
           <p className="lead">
-            I&apos;m a Computer Science student at the University of Adelaide with
-            a 6.4/7.0 GPA and a growing focus on data science and machine learning.
+            I&apos;m completing a Bachelor of Computer Science at the University of
+            Adelaide, with a growing focus on data science and machine learning.
           </p>
           <p>
             As a 2026 Adelaide Summer Research Scholarship student, I developed
