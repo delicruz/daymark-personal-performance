@@ -4,7 +4,7 @@
   --ink: #101a36;
   --paper: #f5f2ea;
   --orange: #ff7048;
-  --purple: #8064ee;
+  --cobalt: #3157d5;
   --lime: #c9ff69;
   --line: rgba(16, 26, 54, 0.24);
 }
@@ -84,7 +84,7 @@ h1 {
   letter-spacing: -.065em;
   font-weight: 850;
 }
-.highlight { color: var(--purple); font-style: italic; font-family: Georgia, serif; font-weight: 500; }
+.highlight { color: var(--cobalt); font-style: italic; font-family: Georgia, serif; font-weight: 500; }
 .hero-intro { max-width: 610px; font-size: clamp(17px, 1.6vw, 22px); line-height: 1.5; color: rgba(16,26,54,.72); }
 .hero-actions { display: flex; align-items: center; gap: 30px; margin-top: 38px; }
 .button { display: inline-flex; align-items: center; gap: 24px; padding: 17px 22px; font-size: 12px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
@@ -99,7 +99,7 @@ h1 {
   width: 100%;
   padding: 28px;
   justify-self: center;
-  background: var(--purple);
+  background: var(--cobalt);
   color: white;
   border: 2px solid var(--ink);
   box-shadow: 14px 14px 0 var(--ink);
@@ -151,7 +151,7 @@ h1 {
 .project-card { min-height: 470px; padding: 28px; border: 2px solid var(--ink); display: flex; flex-direction: column; justify-content: space-between; transition: transform .2s ease, box-shadow .2s ease; }
 .project-card:hover { transform: translateY(-7px); box-shadow: 8px 8px 0 var(--ink); }
 .project-card.orange { background: var(--orange); }
-.project-card.purple { background: var(--purple); color: white; }
+.project-card.cobalt { background: var(--cobalt); color: white; }
 .project-card.lime { background: var(--lime); }
 .project-card.blue { background: #66c7e8; }
 .project-top { display: flex; justify-content: space-between; align-items: start; font: 800 12px/1 var(--font-geist-mono), monospace; }
@@ -162,7 +162,7 @@ h1 {
 .tag-list { display: flex; flex-wrap: wrap; gap: 7px; margin: 30px 0 0; padding: 0; list-style: none; }
 .tag-list li { padding: 7px 9px; background: rgba(245,242,234,.84); color: var(--ink); border: 1px solid var(--ink); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 
-.about { display: grid; grid-template-columns: 1fr 1fr; gap: 12vw; background: var(--purple); color: white; }
+.about { display: grid; grid-template-columns: 1fr 1fr; gap: 12vw; background: var(--cobalt); color: white; }
 .about h2 em { color: var(--lime); font-family: Georgia, serif; font-weight: 400; }
 .about-copy { max-width: 610px; }
 .about-copy p { opacity: .74; font-size: 16px; line-height: 1.7; }

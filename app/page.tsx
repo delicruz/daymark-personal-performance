@@ -24,7 +24,7 @@ const projects = [
       "Designed player and enemy class systems, battle mechanics, and state management using inheritance and polymorphism for a structured, extensible game architecture.",
     outcome: "OOP Architecture",
     tags: ["C++", "Algorithms", "Polymorphism"],
-    color: "purple",
+    color: "cobalt",
   },
   {
     index: "04",
