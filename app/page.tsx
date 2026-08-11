@@ -191,8 +191,8 @@ export default function Home() {
       <section className="contact section" id="contact">
         <p className="eyebrow">Let&apos;s make something useful</p>
         <h2>Have a problem<br />worth solving?</h2>
-        <a className="contact-link" href="mailto:a19198839@adelaide.edu.au">
-          a19198839@adelaide.edu.au <ArrowIcon />
+        <a className="contact-link" href="mailto:giaptridunghg2006@gmail.com">
+          giaptridunghg2006@gmail.com <ArrowIcon />
         </a>
         <div className="contact-note">
           <span>Available for internships &amp; graduate roles</span>
