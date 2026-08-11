@@ -6,8 +6,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Dung Nguyen - Data Science Portfolio",
-  description: "Data science student building useful machine learning projects with clear, measurable outcomes.",
+  title: "Tri Dung Giap - Data Science Portfolio",
+  description: "University of Adelaide Computer Science student working across data science, statistics, computer vision, and real-time motion tracking.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
 

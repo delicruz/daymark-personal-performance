@@ -1,38 +1,38 @@
 const projects = [
   {
     index: "01",
-    title: "Forecasting City Bike Demand",
+    title: "Real-Time Human Motion Tracking",
     description:
-      "Built a time-series forecasting pipeline to predict hourly bike demand and help operators rebalance stations before peak periods.",
-    outcome: "18% lower MAE",
-    tags: ["Python", "XGBoost", "Time Series"],
+      "Built two complementary motion-tracking pipelines: quaternion-based IMU orientation with sensor fusion, and computer vision for elbow and wrist joint-angle estimation.",
+    outcome: "2026 Research Scholarship",
+    tags: ["Python", "MediaPipe", "OpenCV"],
     color: "orange",
   },
   {
     index: "02",
-    title: "Customer Churn, Explained",
+    title: "C++ Turn-Based Strategy Game",
     description:
-      "Compared interpretable classification models and translated SHAP insights into retention actions for a subscription business.",
-    outcome: "0.87 ROC-AUC",
-    tags: ["scikit-learn", "SHAP", "SQL"],
+      "Designed player and enemy class systems, battle mechanics, and state management using inheritance and polymorphism for a structured, extensible game architecture.",
+    outcome: "OOP Architecture",
+    tags: ["C++", "Algorithms", "Polymorphism"],
     color: "purple",
   },
   {
     index: "03",
-    title: "Review Intelligence Engine",
+    title: "Statistical Reports in R",
     description:
-      "Designed an NLP workflow that groups product feedback by theme and surfaces emerging issues from thousands of reviews.",
-    outcome: "8 themes discovered",
-    tags: ["NLP", "BERT", "Streamlit"],
+      "Created analysis pipelines for survey and experimental data, applying regression, hypothesis testing, and ANOVA with clear visual reporting.",
+    outcome: "Statistical Modelling",
+    tags: ["R", "ggplot2", "ANOVA"],
     color: "lime",
   },
 ];
 
 const toolkit = [
-  { group: "Languages", items: ["Python", "SQL", "R"] },
-  { group: "Machine learning", items: ["scikit-learn", "PyTorch", "XGBoost"] },
-  { group: "Data & visualisation", items: ["Pandas", "Tableau", "Power BI"] },
-  { group: "Workflow", items: ["Git", "Docker", "Jupyter"] },
+  { group: "Programming", items: ["Python", "R", "C++", "Object-oriented design"] },
+  { group: "Data & statistics", items: ["Regression", "Hypothesis testing", "ANOVA", "Probability theory"] },
+  { group: "Vision & sensing", items: ["OpenCV", "MediaPipe", "Sensor fusion", "Quaternion tracking"] },
+  { group: "Tools", items: ["Git / GitHub", "Jupyter", "Power BI", "Excel"] },
 ];
 
 function ArrowIcon() {
@@ -44,8 +44,8 @@ export default function Home() {
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Back to top">
-          <span className="brand-mark">DN</span>
-          <span>DUNG / DATA</span>
+          <span className="brand-mark">TG</span>
+          <span>TRI DUNG / DATA</span>
         </a>
         <nav aria-label="Main navigation">
           <a href="#work">Work</a>
@@ -59,15 +59,15 @@ export default function Home() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">Data science student / Adelaide, AU</p>
+          <p className="eyebrow">Computer Science / University of Adelaide</p>
           <h1>
-            I turn messy data
+            I build intelligent
             <br />
-            into <span className="highlight">clear decisions.</span>
+            systems from <span className="highlight">real data.</span>
           </h1>
           <p className="hero-intro">
-            Aspiring data scientist and machine learning engineer building
-            thoughtful, useful models - from first question to final story.
+            Computer Science student focused on data science, statistics, and
+            machine learning - from rigorous analysis to real-time sensing systems.
           </p>
           <div className="hero-actions">
             <a className="button button-primary" href="#work">
@@ -79,14 +79,14 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="data-poster" aria-label="Decorative model performance card">
+        <div className="data-poster" aria-label="Research motion-tracking project card">
           <div className="poster-topline">
-            <span>MODEL_03</span>
-            <span>VALIDATION</span>
+            <span>RESEARCH_2026</span>
+            <span>MOTION TRACKING</span>
           </div>
           <div className="poster-score">
-            <span className="score-label">F1 SCORE</span>
-            <strong>.91</strong>
+            <span className="score-label">PIPELINES</span>
+            <strong>02</strong>
           </div>
           <div className="chart" aria-hidden="true">
             {[38, 62, 51, 84, 69, 92, 78, 97].map((height, index) => (
@@ -94,27 +94,27 @@ export default function Home() {
             ))}
           </div>
           <div className="poster-footer">
-            <span>TRAIN / TEST</span>
-            <span>+12.4%</span>
+            <span>IMU / VISION</span>
+            <span>REAL-TIME</span>
           </div>
           <div className="poster-sticker">LEARN<br />BUILD<br />ITERATE</div>
         </div>
       </section>
 
       <section className="proof-strip" aria-label="Highlights">
-        <div><strong>03</strong><span>End-to-end projects</span></div>
-        <div><strong>12+</strong><span>Models explored</span></div>
-        <div><strong>ALWAYS</strong><span>Questions to ask</span></div>
-        <p>Curious by default.<br />Rigorous by design.</p>
+        <div><strong>6.4</strong><span>GPA / 7.0</span></div>
+        <div><strong>2026</strong><span>Research scholarship</span></div>
+        <div><strong>03</strong><span>Featured builds</span></div>
+        <p>Research-minded.<br />Built in practice.</p>
       </section>
 
       <section className="projects section" id="work">
         <div className="section-heading">
-          <p className="eyebrow">Selected work / 2026</p>
-          <h2>Projects with a point.</h2>
+          <p className="eyebrow">Research &amp; selected work</p>
+          <h2>Built beyond the classroom.</h2>
           <p>
-            Each project starts with a real question and ends with a result
-            someone can understand and use.
+            From real-time motion tracking to statistical analysis and
+            object-oriented software design.
           </p>
         </div>
         <div className="project-grid">
@@ -140,22 +140,22 @@ export default function Home() {
       <section className="about section" id="about">
         <div className="about-title">
           <p className="eyebrow">A little about me</p>
-          <h2>Equal parts<br /><em>logic</em> &amp; curiosity.</h2>
+          <h2>Research driven.<br /><em>Always</em> learning.</h2>
         </div>
         <div className="about-copy">
           <p className="lead">
-            I&apos;m a data science student who enjoys finding the signal in the
-            noise - and explaining it without the jargon.
+            I&apos;m a Computer Science student at the University of Adelaide with
+            a 6.4/7.0 GPA and a growing focus on data science and machine learning.
           </p>
           <p>
-            My interests sit at the intersection of machine learning,
-            experimentation, and responsible product decisions. I care about
-            clean analysis, honest evaluation, and building things that are
-            genuinely useful.
+            As a 2026 Adelaide Summer Research Scholarship student, I developed
+            real-time human motion tracking with IMU sensor fusion, MediaPipe,
+            and OpenCV under the supervision of Mr. Siu Wai Ho.
           </p>
           <p>
-            Right now, I&apos;m looking for internships and graduate opportunities
-            where I can learn from a strong team and contribute from day one.
+            I enjoy combining statistical reasoning with practical software
+            engineering, and I&apos;m looking for opportunities to keep learning
+            while contributing to useful data and ML systems.
           </p>
         </div>
       </section>
@@ -181,8 +181,8 @@ export default function Home() {
       <section className="contact section" id="contact">
         <p className="eyebrow">Let&apos;s make something useful</p>
         <h2>Have a problem<br />worth solving?</h2>
-        <a className="contact-link" href="mailto:hello@yourname.dev">
-          hello@yourname.dev <ArrowIcon />
+        <a className="contact-link" href="mailto:a19198839@adelaide.edu.au">
+          a19198839@adelaide.edu.au <ArrowIcon />
         </a>
         <div className="contact-note">
           <span>Available for internships &amp; graduate roles</span>
@@ -191,10 +191,10 @@ export default function Home() {
       </section>
 
       <footer>
-        <span>(c) 2026 Dung Nguyen</span>
+        <span>(c) 2026 Tri Dung Giap</span>
         <div>
-          <a href="https://github.com/" target="_blank" rel="noreferrer">GitHub <ArrowIcon /></a>
-          <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn <ArrowIcon /></a>
+          <a href="https://github.com/delicruz" target="_blank" rel="noreferrer">GitHub <ArrowIcon /></a>
+          <a href="https://www.linkedin.com/in/tri-dung-giap-117374338/" target="_blank" rel="noreferrer">LinkedIn <ArrowIcon /></a>
         </div>
         <a href="#top">Back to top</a>
       </footer>
