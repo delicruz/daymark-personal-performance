@@ -443,6 +443,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .steps-grid article, .privacy-card, .dashboard-grid > section, .page-card, .settings-section { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
 .steps-grid article:hover, .dashboard-grid > section:hover, .page-card:hover { border-color: rgba(24,56,47,.23); box-shadow: 0 14px 34px rgba(24,56,47,.07); transform: translateY(-2px); }
 
+/* Meaning-first grouping: use whitespace, icons and state colour instead of divider lines. */
+.marketing-nav, .app-header { border-bottom: 0; }
+.metrics-band { gap: 12px; }
+.metrics-band > * { min-height: 88px; border-right: 0; border-radius: var(--radius-sm); }
+.metrics-band > div { position: relative; grid-template-columns: auto 1fr; align-content: center; column-gap: 12px; padding: 14px 20px; background: rgba(255,255,255,.2); }
+.metrics-band > div i { grid-row: 1 / 3; display: grid; place-content: center; width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--mint); font-style: normal; font-size: 15px; }
+.metrics-band > div strong, .metrics-band > div span { grid-column: 2; }
+.steps-grid { overflow: visible; gap: 16px; border: 0; border-radius: 0; box-shadow: none; }
+.steps-grid article { border: 0; border-radius: var(--radius-md); background: var(--paper); box-shadow: var(--shadow-soft); }
+.steps-grid article:last-child { border: 0; }
+.step-symbol { border-radius: var(--radius-sm); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(24,56,47,.05); }
+.science-copy ul { display: grid; gap: 8px; }
+.science-copy li { padding: 15px 16px; border-top: 0; border-radius: var(--radius-sm); background: rgba(255,255,255,.055); }
+.science-copy li span { width: 42px; }
+.privacy-card { border: 0; }
+.privacy-points span { border-radius: 999px; }
+.dashboard-grid > section, .page-card, .insight-stats article, .week-grid article, .report-metrics article, .settings-section { border: 0; box-shadow: 0 8px 28px rgba(24,56,47,.055); }
+.outlook-card { background: linear-gradient(145deg, #fff 0%, #f7f8f2 100%) !important; }
+.checkin-card { background: linear-gradient(145deg, #fafcf7 0%, #edf3e8 100%) !important; }
+.confidence-line { border-top: 0; border-radius: var(--radius-sm); padding: 11px 13px; background: #eef1eb; }
+.factor-list { gap: 8px; margin-top: 8px; }
+.factor { border-top: 0; border-radius: var(--radius-sm); background: #eff4ec; }
+.factor:nth-child(odd) { padding-right: 12px; border-right: 0; }
+.factor:nth-child(even) { padding-left: 12px; }
+.factor:nth-child(n+3) { background: #f8eee9; }
+.calendar-stats { gap: 8px; }
+.calendar-stats > div { min-height: 60px; place-content: center; border-right: 0; border-radius: var(--radius-sm); background: #eff2ec; }
+.priorities-card label { margin-top: 6px; padding: 11px 12px; border-top: 0; border-radius: var(--radius-sm); background: #f0f2ec; }
+.priorities-card label:has(input:checked) { background: #f6f7f3; }
+.week-grid { gap: 8px; }
+.week-grid article, .week-grid article:first-child, .week-grid article:last-child { border: 0; border-radius: var(--radius-md); }
+.risk-item { margin-top: 8px; padding: 14px; border-top: 0; border-radius: var(--radius-sm); background: #f8eee9; }
+.risk-item.positive-risk { background: #edf4e9; }
+.report-metrics { gap: 10px; }
+.report-metrics article, .report-metrics article:last-child { border: 0; }
+.correlation-list { display: grid; gap: 10px; }
+.correlation-list > div { margin: 0; padding: 12px; border-radius: var(--radius-sm); background: #f0f2ec; }
+.settings-layout > nav { gap: 7px; }
+.settings-layout > nav button { border-radius: var(--radius-sm); }
+.integration-row, .privacy-note { border-radius: var(--radius-sm); }
+.control-row { margin-top: 8px; padding: 14px; border-top: 0; border-radius: var(--radius-sm); background: #f0f2ec; }
+.control-row.danger { background: #f8eee9; }
+.goal-options { gap: 10px; }
+.consent-list { gap: 8px; }
+.consent-list label { border-radius: var(--radius-sm); }
+
 @media (max-width: 1100px) {
   .hero-shell { grid-template-columns: 1fr; padding-top: 150px; }
   .hero-product { justify-self: center; margin-top: 30px; }

@@ -16,9 +16,9 @@ const week = [
 ];
 
 const navItems: { id: View; label: string; icon: string }[] = [
-  { id: "today", label: "Today", icon: "⌂" },
+  { id: "today", label: "Today", icon: "☀" },
   { id: "forecast", label: "Forecast", icon: "↗" },
-  { id: "insights", label: "Insights", icon: "⌁" },
+  { id: "insights", label: "Insights", icon: "✦" },
   { id: "report", label: "Weekly report", icon: "▤" },
   { id: "settings", label: "Data & settings", icon: "⚙" },
 ];
@@ -104,9 +104,9 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
       </section>
 
       <section className="metrics-band" aria-label="Product benefits">
-        <div><strong>60 sec</strong><span>Daily check-in</span></div>
-        <div><strong>7–14 days</strong><span>To learn your baseline</span></div>
-        <div><strong>100%</strong><span>User-controlled data</span></div>
+        <div><i aria-hidden="true">☀</i><strong>60 sec</strong><span>Daily check-in</span></div>
+        <div><i aria-hidden="true">↗</i><strong>7–14 days</strong><span>To learn your baseline</span></div>
+        <div><i aria-hidden="true">◇</i><strong>100%</strong><span>User-controlled data</span></div>
         <p>Less guessing.<br /><em>More intentional days.</em></p>
       </section>
 
@@ -118,8 +118,8 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
         </div>
         <div className="steps-grid">
           <article><span>01</span><div className="step-symbol">☼</div><h3>Check in</h3><p>Share sleep, energy, stress and your three priorities in under a minute.</p></article>
-          <article><span>02</span><div className="step-symbol">⌗</div><h3>See the signals</h3><p>We combine your check-in with meeting load and available focus blocks.</p></article>
-          <article><span>03</span><div className="step-symbol">↗</div><h3>Plan with clarity</h3><p>Get an explainable range, confidence level and one practical action.</p></article>
+          <article><span>02</span><div className="step-symbol">▦</div><h3>See the signals</h3><p>We combine your check-in with meeting load and available focus blocks.</p></article>
+          <article><span>03</span><div className="step-symbol">✦</div><h3>Plan with clarity</h3><p>Get an explainable range, confidence level and one practical action.</p></article>
         </div>
       </section>
 
