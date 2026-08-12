@@ -51,7 +51,7 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
         </nav>
         <div className="nav-actions">
           <button className="link-button" onClick={onDemo}>Sign in</button>
-          <button className="small-cta" onClick={onStart}>Start free <span>↗</span></button>
+          <button className="small-cta" onClick={onStart}>Start free <span className="solid-arrow" aria-hidden="true" /></button>
         </div>
       </header>
 
@@ -63,8 +63,8 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
             Daymark turns your energy, routines and calendar into one explainable forecast for the day ahead.
           </p>
           <div className="hero-actions">
-            <button className="primary-cta" onClick={onStart}>See tomorrow clearly <span>↗</span></button>
-            <button className="demo-link" onClick={onDemo}><span className="play">▶</span> Explore the live demo</button>
+            <button className="primary-cta" onClick={onStart}>See tomorrow clearly <span className="solid-arrow" aria-hidden="true" /></button>
+            <button className="demo-link" onClick={onDemo}><span className="play" aria-hidden="true" /> Explore the live demo</button>
           </div>
           <div className="trust-line">
             <span>✓ Your baseline</span><span>✓ Your explanation</span><span>✓ Your data</span>
@@ -147,7 +147,7 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
       <section className="final-cta">
         <p>MAKE TOMORROW MORE INTENTIONAL</p>
         <h2>Start noticing what<br /><em>moves your day.</em></h2>
-        <button className="primary-cta light-cta" onClick={onStart}>Build my baseline <span>↗</span></button>
+        <button className="primary-cta light-cta" onClick={onStart}>Build my baseline <span className="solid-arrow" aria-hidden="true" /></button>
       </section>
 
       <footer className="marketing-footer"><Logo /><span>© 2026 Daymark</span><div><a href="#privacy">Privacy</a><a href="#how">How it works</a></div></footer>

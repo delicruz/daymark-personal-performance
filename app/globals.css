@@ -51,6 +51,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .link-button { border: 0; background: none; color: white; cursor: pointer; }
 .small-cta { border: 0; border-radius: 999px; padding: 11px 16px; background: var(--mint); color: var(--ink); font-weight: 750; cursor: pointer; }
 .small-cta span, .primary-cta span { margin-left: 20px; }
+.solid-arrow { display: inline-block; width: 15px; height: 12px; background: currentColor; clip-path: polygon(0 34%, 58% 34%, 58% 0, 100% 50%, 58% 100%, 58% 66%, 0 66%); vertical-align: -1px; }
 .hero-shell { position: relative; min-height: 790px; padding: 146px max(var(--space-page), calc((100% - var(--content-width)) / 2)) 88px; color: white; background: radial-gradient(circle at 76% 48%, rgba(185,218,153,.18), transparent 30%), radial-gradient(circle at 18% 78%, rgba(239,122,82,.1), transparent 28%), var(--ink); display: grid; grid-template-columns: .9fr 1.1fr; align-items: center; gap: clamp(56px, 7vw, 110px); }
 .hero-shell::before { content: ""; position: absolute; inset: 0; opacity: .18; pointer-events: none; background-image: radial-gradient(rgba(255,255,255,.5) .6px, transparent .6px); background-size: 18px 18px; mask-image: linear-gradient(to right, black, transparent 58%); }
 .hero-copy, .hero-product { position: relative; z-index: 1; }
@@ -62,7 +63,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .primary-cta { padding: 18px 21px; background: var(--mint); border: 0; border-radius: 999px; color: var(--ink); font-size: 13px; font-weight: 750; cursor: pointer; box-shadow: 0 10px 30px rgba(185,218,153,.16); transition: transform .2s, box-shadow .2s; }
 .primary-cta:hover { transform: translateY(-2px); box-shadow: 0 15px 36px rgba(185,218,153,.24); }
 .demo-link { display: flex; align-items: center; gap: 12px; border: 0; background: none; color: white; font-weight: 650; cursor: pointer; }
-.play { display: grid; place-content: center; width: 32px; height: 32px; padding-left: 2px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; font-size: 9px; }
+.play { display: grid; place-content: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--mint); box-shadow: 0 7px 18px rgba(185,218,153,.14); }
+.play::before { content: ""; width: 10px; height: 12px; margin-left: 2px; background: var(--ink); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.demo-link:hover .play { transform: scale(1.08); background: white; }
 .trust-line { display: flex; gap: 8px; margin-top: 34px; color: rgba(255,255,255,.7); font-size: 10px; }
 .trust-line span { padding: 7px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: rgba(255,255,255,.04); }
 .hero-product { position: relative; width: 100%; max-width: 690px; justify-self: end; }
