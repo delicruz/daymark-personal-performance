@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
@@ -23,6 +23,14 @@ const navItems: { id: View; label: string; icon: string }[] = [
   { id: "settings", label: "Data & settings", icon: "⚙" },
 ];
 
+const tourSteps = [
+  { target: "navigation", eyebrow: "YOUR WORKSPACE", title: "Everything has a home.", body: "Move between today’s plan, future forecasts, personal patterns, weekly reports and your data controls." },
+  { target: "outlook", eyebrow: "START HERE", title: "See tomorrow at a glance.", body: "Your forecast is always a range with a confidence level—never a promise or a judgement." },
+  { target: "factors", eyebrow: "STAY INFORMED", title: "Always see the why.", body: "Positive signals and risk factors explain what moved the outlook, using your own recent patterns." },
+  { target: "checkin", eyebrow: "BUILD YOUR BASELINE", title: "A minute makes it personal.", body: "Quick check-ins teach Daymark your energy, stress and sleep rhythm without invasive monitoring." },
+  { target: "priorities", eyebrow: "TURN INSIGHT INTO ACTION", title: "Keep the day intentional.", body: "Choose a small set of meaningful priorities, then reflect on what actually happened at day’s end." },
+] as const;
+
 const factors = [
   { label: "Sleep quality", value: "+11", positive: true, detail: "7h 42m · above your average" },
   { label: "Focus time", value: "+8", positive: true, detail: "Two uninterrupted blocks" },
@@ -37,6 +45,63 @@ function Logo({ dark = false }: { dark?: boolean }) {
       <strong>Daymark</strong>
     </span>
   );
+}
+
+function GuidedTour({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const cardRef = useRef<HTMLElement>(null);
+  const [highlight, setHighlight] = useState({ top: 20, left: 20, width: 120, height: 80 });
+  const [cardPosition, setCardPosition] = useState({ top: 120, left: 120, width: 340 });
+  const current = tourSteps[step];
+
+  const finish = useCallback(() => {
+    localStorage.setItem("daymark-guided-tour:v1", "complete");
+    onClose();
+  }, [onClose]);
+
+  const updatePosition = useCallback(() => {
+    const element = document.querySelector<HTMLElement>(`[data-tour="${current.target}"]`);
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const inset = 8;
+    const width = Math.min(340, window.innerWidth - 32);
+    const estimatedHeight = 230;
+    const gap = 16;
+    const left = Math.max(inset, rect.left - inset);
+    const top = Math.max(inset, rect.top - inset);
+    setHighlight({
+      top,
+      left,
+      width: Math.min(window.innerWidth - left - inset, rect.width + inset * 2),
+      height: Math.min(window.innerHeight - top - inset, rect.height + inset * 2),
+    });
+
+    const canFitRight = rect.right + gap + width <= window.innerWidth - 16;
+    let cardLeft = canFitRight ? rect.right + gap : Math.min(window.innerWidth - width - 16, Math.max(16, rect.left));
+    let cardTop = canFitRight ? Math.min(window.innerHeight - estimatedHeight - 16, Math.max(16, rect.top)) : rect.bottom + gap;
+    if (cardTop + estimatedHeight > window.innerHeight) cardTop = Math.max(16, rect.top - estimatedHeight - gap);
+    cardLeft = Math.max(16, cardLeft);
+    setCardPosition({ top: cardTop, left: cardLeft, width });
+  }, [current.target]);
+
+  useEffect(() => {
+    const element = document.querySelector<HTMLElement>(`[data-tour="${current.target}"]`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = window.setTimeout(updatePosition, 320);
+    cardRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") finish(); };
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, { passive: true });
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [current.target, finish, updatePosition]);
+
+  return <div className="tour-layer"><div className="tour-catcher" /><div className="tour-highlight" style={highlight} /><section ref={cardRef} tabIndex={-1} className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={cardPosition}><div className="tour-topline"><span>{current.eyebrow}</span><button onClick={finish} aria-label="Close guided tour">×</button></div><h2 id="tour-title">{current.title}</h2><p>{current.body}</p><div className="tour-progress" aria-label={`Step ${step + 1} of ${tourSteps.length}`}>{tourSteps.map((item, index) => <i key={item.target} className={index === step ? "active" : index < step ? "complete" : ""} />)}</div><div className="tour-actions"><button className="tour-skip" onClick={finish}>Skip tour</button><div>{step > 0 && <button className="tour-back" onClick={() => setStep(step - 1)}>Back</button>}<button className="tour-next" onClick={() => step === tourSteps.length - 1 ? finish() : setStep(step + 1)}>{step === tourSteps.length - 1 ? "Finish" : "Next"}<span className="solid-arrow" aria-hidden="true" /></button></div></div></section></div>;
 }
 
 function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => void }) {
@@ -155,14 +220,15 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
   );
 }
 
-function Sidebar({ view, setView, exit }: { view: View; setView: (view: View) => void; exit: () => void }) {
+function Sidebar({ view, setView, exit, startTour }: { view: View; setView: (view: View) => void; exit: () => void; startTour: () => void }) {
   return (
     <aside className="sidebar">
       <Logo dark />
-      <nav aria-label="Dashboard navigation">
+      <nav aria-label="Dashboard navigation" data-tour="navigation">
         {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} aria-label={item.label} data-label={item.label} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
       </nav>
       <div className="baseline-box"><span>BASELINE</span><strong>24 of 30 days</strong><div><i /></div><small>6 more days to improve accuracy</small></div>
+      <button className="tour-restart" aria-label="Open guided tour" data-label="Guided tour" onClick={startTour}><span>?</span><strong>Guided tour</strong></button>
       <button className="profile-block" onClick={exit}><b>TD</b><span><strong>Tri Dung</strong><small>Personal workspace</small></span><em>⋯</em></button>
     </aside>
   );
@@ -179,7 +245,7 @@ function Today({ setModal, prediction }: { setModal: (modal: Modal) => void; pre
     <>
       <AppHeader title="Good morning, Tri." subtitle="WEDNESDAY · 12 AUGUST" setModal={setModal} />
       <div className="dashboard-grid">
-        <section className="outlook-card">
+        <section className="outlook-card" data-tour="outlook">
           <div className="card-label"><span>✦</span> TOMORROW’S PRODUCTIVITY OUTLOOK <button aria-label="More options">•••</button></div>
           <div className="outlook-main">
             <div><span className="outlook-date">THURSDAY · 13 AUGUST</span><h2>A strong day for<br /><em>deep work.</em></h2><p>Your outlook is above your 30-day average. Protect your morning focus window for the work that matters most.</p></div>
@@ -189,14 +255,14 @@ function Today({ setModal, prediction }: { setModal: (modal: Modal) => void; pre
           <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE</small><strong>Protect 9–11am for your hardest priority.</strong><p>Your energy is typically highest before your first meeting.</p></div><button>View schedule <span>→</span></button></div>
         </section>
 
-        <section className="checkin-card">
+        <section className="checkin-card" data-tour="checkin">
           <div className="card-label">TODAY’S CHECK-IN <span className="complete-pill">✓ COMPLETE</span></div>
           <div className="wellbeing-row"><div><span>☼</span><small>ENERGY</small><strong>4 / 5</strong></div><div><span>◌</span><small>MOOD</small><strong>4 / 5</strong></div><div><span>⌁</span><small>STRESS</small><strong>2 / 5</strong></div></div>
           <div className="sleep-line"><span>☾</span><div><small>LAST NIGHT’S SLEEP</small><strong>7h 42m <em>Good</em></strong></div></div>
           <button className="text-action" onClick={() => setModal("morning")}>Edit check-in <span>→</span></button>
         </section>
 
-        <section className="factors-card">
+        <section className="factors-card" data-tour="factors">
           <div className="card-label">WHAT’S SHAPING TOMORROW <button>Why this prediction? ↗</button></div>
           <div className="factor-list">{factors.map((factor) => <div className="factor" key={factor.label}><span className={factor.positive ? "factor-up" : "factor-down"}>{factor.positive ? "↑" : "↓"}</span><div><strong>{factor.label}</strong><small>{factor.detail}</small></div><b className={factor.positive ? "positive" : "negative"}>{factor.value}</b></div>)}</div>
         </section>
@@ -207,7 +273,7 @@ function Today({ setModal, prediction }: { setModal: (modal: Modal) => void; pre
           <div className="timeline"><span>8am</span><div className="focus-block" style={{ gridColumn: "2 / 5" }}>Best focus window <b>9–11am</b></div><div className="meeting-block" style={{ gridColumn: "5" }}>Meet</div><div className="meeting-block light" style={{ gridColumn: "7 / 9" }}>Meetings</div><span>5pm</span></div>
         </section>
 
-        <section className="priorities-card">
+        <section className="priorities-card" data-tour="priorities">
           <div className="card-label">TODAY’S PRIORITIES <span>2 OF 3 COMPLETE</span></div>
           {["Finish project proposal", "Review research notes", "Plan tomorrow’s focus block"].map((item, index) => <label key={item}><input type="checkbox" defaultChecked={index < 2} /><span>{item}</span><small>{index === 0 ? "HIGH IMPACT" : index === 1 ? "45 MIN" : "20 MIN"}</small></label>)}
           <button className="text-action">+ Add priority</button>
@@ -251,18 +317,24 @@ function CheckInModal({ modal, close, onSaved }: { modal: Exclude<Modal, null>; 
   const onboarding = modal === "onboarding";
   const evening = modal === "evening";
   const submit = (event: FormEvent) => { event.preventDefault(); if (onboarding && step < 3) { setStep(step + 1); return; } onSaved(Math.min(88, 68 + energy * 3 - stress + Math.round(focus / 60))); };
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}><form className="checkin-modal" onSubmit={submit}><button type="button" className="modal-close" onClick={close} aria-label="Close">×</button>{onboarding ? <><span className="modal-kicker">SETUP · {step} OF 3</span><div className="modal-progress"><i style={{width:`${step/3*100}%`}} /></div>{step===1&&<><h2>What would you like<br />to improve?</h2><p>Choose your main goal. You can change this later.</p><div className="goal-options"><label><input type="radio" name="goal" defaultChecked/><span>✦</span><strong>Improve daily focus</strong><small>Find and protect your best deep-work windows</small></label><label><input type="radio" name="goal"/><span>↗</span><strong>Plan more realistically</strong><small>Match daily workload to your actual capacity</small></label><label><input type="radio" name="goal"/><span>☼</span><strong>Build healthier routines</strong><small>Understand how habits affect your work</small></label></div></>}{step===2&&<><h2>Set your typical<br />working day.</h2><p>This helps us understand your calendar availability.</p><div className="field-row"><label>START TIME<input type="time" defaultValue="09:00" /></label><label>END TIME<input type="time" defaultValue="17:00" /></label></div><label className="full-field">WORKING DAYS<select defaultValue="weekdays"><option value="weekdays">Monday to Friday</option><option>Every day</option></select></label></>}{step===3&&<><h2>You’re in control<br />of every signal.</h2><p>Start with manual check-ins. Calendar summaries are optional and never include event contents.</p><div className="consent-list"><label><input type="checkbox" defaultChecked/><span><strong>Daily check-ins</strong><small>Sleep, energy, stress, goals and outcomes</small></span></label><label><input type="checkbox"/><span><strong>Calendar summaries</strong><small>Meeting count, duration and free blocks only</small></span></label><label><input type="checkbox" defaultChecked/><span><strong>Personal model training</strong><small>Use my data to improve my own forecasts</small></span></label></div></>}<button className="modal-submit">{step<3?"Continue":"Start my baseline"}<span>→</span></button></> : <><span className="modal-kicker">{evening ? "EVENING REVIEW" : "MORNING CHECK-IN"} · UNDER 60 SECONDS</span><h2>{evening ? "How did today go?" : "How are you starting today?"}</h2><p>{evening ? "Your reflection helps tomorrow’s forecast improve." : "Small signals help Daymark understand your capacity."}</p>{evening ? <><label className="range-field"><span><strong>Productivity</strong><b>8 / 10</b></span><input type="range" min="1" max="10" defaultValue="8" /></label><label className="range-field"><span><strong>Focused work</strong><b>{focus} min</b></span><input type="range" min="0" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><label className="full-field">SHORT REFLECTION<textarea placeholder="What helped or interrupted you today?" /></label></> : <><label className="range-field"><span><strong>Energy</strong><b>{energy} / 5</b></span><input type="range" min="1" max="5" value={energy} onChange={e=>setEnergy(Number(e.target.value))}/></label><label className="range-field"><span><strong>Stress</strong><b>{stress} / 5</b></span><input type="range" min="1" max="5" value={stress} onChange={e=>setStress(Number(e.target.value))}/></label><label className="range-field"><span><strong>Planned focus time</strong><b>{focus} min</b></span><input type="range" min="30" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><div className="field-row"><label>SLEEP DURATION<input type="text" defaultValue="7h 42m" /></label><label>WORKLOAD<select defaultValue="normal"><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label></div></>}<button className="modal-submit">Save {evening ? "review" : "check-in"}<span>→</span></button></>}</form></div>;
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}><form className="checkin-modal" onSubmit={submit}><button type="button" className="modal-close" onClick={close} aria-label="Close">×</button>{onboarding ? <><span className="modal-kicker">SETUP · {step} OF 3</span><div className="modal-progress"><i style={{width:`${step/3*100}%`}} /></div>{step===1&&<><h2>What would you like<br />to improve?</h2><p>Choose your main goal. You can change this later.</p><div className="goal-options"><label><input aria-label="Improve daily focus" type="radio" name="goal" defaultChecked/><span>✦</span><strong>Improve daily focus</strong><small>Find and protect your best deep-work windows</small></label><label><input aria-label="Plan more realistically" type="radio" name="goal"/><span>↗</span><strong>Plan more realistically</strong><small>Match daily workload to your actual capacity</small></label><label><input aria-label="Build healthier routines" type="radio" name="goal"/><span>☼</span><strong>Build healthier routines</strong><small>Understand how habits affect your work</small></label></div></>}{step===2&&<><h2>Set your typical<br />working day.</h2><p>This helps us understand your calendar availability.</p><div className="field-row"><label>START TIME<input type="time" defaultValue="09:00" /></label><label>END TIME<input type="time" defaultValue="17:00" /></label></div><label className="full-field">WORKING DAYS<select defaultValue="weekdays"><option value="weekdays">Monday to Friday</option><option>Every day</option></select></label></>}{step===3&&<><h2>You’re in control<br />of every signal.</h2><p>Start with manual check-ins. Calendar summaries are optional and never include event contents.</p><div className="consent-list"><label><input aria-label="Daily check-ins" type="checkbox" defaultChecked/><span><strong>Daily check-ins</strong><small>Sleep, energy, stress, goals and outcomes</small></span></label><label><input aria-label="Calendar summaries" type="checkbox"/><span><strong>Calendar summaries</strong><small>Meeting count, duration and free blocks only</small></span></label><label><input aria-label="Personal model training" type="checkbox" defaultChecked/><span><strong>Personal model training</strong><small>Use my data to improve my own forecasts</small></span></label></div></>}<button className="modal-submit">{step<3?"Continue":"Start my baseline"}<span>→</span></button></> : <><span className="modal-kicker">{evening ? "EVENING REVIEW" : "MORNING CHECK-IN"} · UNDER 60 SECONDS</span><h2>{evening ? "How did today go?" : "How are you starting today?"}</h2><p>{evening ? "Your reflection helps tomorrow’s forecast improve." : "Small signals help Daymark understand your capacity."}</p>{evening ? <><label className="range-field"><span><strong>Productivity</strong><b>8 / 10</b></span><input aria-label="Productivity" type="range" min="1" max="10" defaultValue="8" /></label><label className="range-field"><span><strong>Focused work</strong><b>{focus} min</b></span><input aria-label="Focused work" type="range" min="0" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><label className="full-field">SHORT REFLECTION<textarea placeholder="What helped or interrupted you today?" /></label></> : <><label className="range-field"><span><strong>Energy</strong><b>{energy} / 5</b></span><input aria-label="Energy" type="range" min="1" max="5" value={energy} onChange={e=>setEnergy(Number(e.target.value))}/></label><label className="range-field"><span><strong>Stress</strong><b>{stress} / 5</b></span><input aria-label="Stress" type="range" min="1" max="5" value={stress} onChange={e=>setStress(Number(e.target.value))}/></label><label className="range-field"><span><strong>Planned focus time</strong><b>{focus} min</b></span><input aria-label="Planned focus time" type="range" min="30" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><div className="field-row"><label>SLEEP DURATION<input type="text" defaultValue="7h 42m" /></label><label>WORKLOAD<select defaultValue="normal"><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label></div></>}<button className="modal-submit">Save {evening ? "review" : "check-in"}<span>→</span></button></>}</form></div>;
 }
 
 function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; initialOnboarding?: boolean }) {
   const [view, setView] = useState<View>("today");
   const [transitionState, setTransitionState] = useState<"ready" | "leaving" | "entering">("ready");
   const [modal, setModal] = useState<Modal>(initialOnboarding ? "onboarding" : null);
+  const [tourOpen, setTourOpen] = useState(false);
   const [prediction, setPrediction] = useState(74);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titles = useMemo(() => ({ today: "Today", forecast: "Forecast", insights: "Insights", report: "Weekly report", settings: "Settings" }), []);
   useEffect(() => { document.title = `${titles[view]} · Daymark`; }, [view, titles]);
   useEffect(() => () => { if (transitionTimer.current) clearTimeout(transitionTimer.current); }, []);
+  useEffect(() => {
+    if (initialOnboarding || localStorage.getItem("daymark-guided-tour:v1")) return;
+    const timer = window.setTimeout(() => setTourOpen(true), 650);
+    return () => window.clearTimeout(timer);
+  }, [initialOnboarding]);
 
   const changeView = (nextView: View) => {
     if (nextView === view || transitionState !== "ready") return;
@@ -279,7 +351,13 @@ function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; init
     }, 150);
   };
 
-  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={exit} /><div className="app-main"><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} prediction={prediction} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={(score) => { if (score) setPrediction(score); setModal(null); localStorage.setItem("daymark-checkin", new Date().toISOString()); }} />}</main>;
+  const startTour = () => {
+    setView("today");
+    setTransitionState("ready");
+    window.setTimeout(() => setTourOpen(true), 80);
+  };
+
+  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={exit} startTour={startTour} /><div className="app-main"><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} prediction={prediction} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={(score) => { const beginTour = modal === "onboarding"; if (score) setPrediction(score); setModal(null); localStorage.setItem("daymark-checkin", new Date().toISOString()); if (beginTour) window.setTimeout(() => setTourOpen(true), 300); }} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
 }
 
 export default function Home() {

@@ -196,6 +196,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .profile-block strong { font-size: 10px; }
 .profile-block small { color: rgba(255,255,255,.45); font-size: 8px; }
 .profile-block em { margin-left: auto; }
+.tour-restart { width: 100%; margin-top: 10px; padding: 10px 12px; border: 0; border-radius: var(--radius-sm); background: rgba(185,218,153,.1); color: var(--mint); display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; }
+.tour-restart:hover { background: rgba(185,218,153,.17); }
+.tour-restart > span { display: grid; place-content: center; width: 23px; height: 23px; border-radius: 50%; background: var(--mint); color: var(--ink); font-size: 11px; font-weight: 800; }
+.tour-restart strong { font-size: 9px; letter-spacing: .01em; }
 .app-main { width: 100%; max-width: 1500px; min-width: 0; margin: 0 auto; padding: 0 clamp(20px, 3vw, 46px) 32px; }
 .app-header { min-height: 116px; display: flex; align-items: center; justify-content: space-between; gap: 30px; border-bottom: 1px solid var(--line); }
 .app-header p { margin: 0 0 8px; color: var(--muted); font: 700 8px var(--font-geist-mono), monospace; letter-spacing: .12em; }
@@ -511,6 +515,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .consent-list { gap: 8px; }
 .consent-list label { border-radius: var(--radius-sm); }
 
+/* First-use guidance */
+.tour-layer { position: fixed; z-index: 200; inset: 0; pointer-events: none; }
+.tour-catcher { position: absolute; inset: 0; pointer-events: auto; }
+.tour-highlight { position: fixed; z-index: 1; border: 2px solid var(--mint); border-radius: var(--radius-md); box-shadow: 0 0 0 9999px rgba(8,24,19,.72), 0 0 0 6px rgba(185,218,153,.16); transition: top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1), width .28s cubic-bezier(.22,1,.36,1), height .28s cubic-bezier(.22,1,.36,1); pointer-events: none; }
+.tour-card { position: fixed; z-index: 2; max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px; border-radius: var(--radius-md); background: #fff; color: var(--ink); box-shadow: 0 24px 70px rgba(0,0,0,.3); pointer-events: auto; animation: tour-card-enter .25s cubic-bezier(.22,1,.36,1) both; }
+.tour-topline { display: flex; justify-content: space-between; align-items: center; }
+.tour-topline > span { color: var(--orange); font: 750 8px var(--font-geist-mono),monospace; letter-spacing: .12em; }
+.tour-topline button { display: grid; place-content: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #edf0ea; color: var(--muted); font-size: 17px; cursor: pointer; }
+.tour-card h2 { margin: 20px 0 10px; font-size: 27px; line-height: 1.05; letter-spacing: -.045em; }
+.tour-card > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.tour-progress { display: flex; gap: 5px; margin: 22px 0; }
+.tour-progress i { flex: 1; height: 4px; border-radius: 999px; background: #e3e7df; transition: background-color .2s ease; }
+.tour-progress i.complete { background: #9dc77a; }
+.tour-progress i.active { background: var(--orange); }
+.tour-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tour-actions > div { display: flex; gap: 7px; }
+.tour-skip, .tour-back, .tour-next { min-height: 38px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; font-size: 9px; font-weight: 700; cursor: pointer; }
+.tour-skip { padding-left: 0; color: var(--muted); }
+.tour-back { background: #edf0ea; }
+.tour-next { display: inline-flex; align-items: center; background: var(--ink); color: #fff; }
+.tour-next .solid-arrow { width: 12px; height: 10px; margin-left: 11px; }
+
+@keyframes tour-card-enter {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* Calm route changes: ease the old view away before the next one settles in. */
 .marketing, .app-shell { animation: experience-enter .38s cubic-bezier(.22, 1, .36, 1) both; }
 .view-stage { min-height: calc(100vh - 175px); opacity: 1; transform: translateY(0) scale(1); filter: blur(0); transition: opacity .15s ease, transform .28s cubic-bezier(.22, 1, .36, 1), filter .18s ease; will-change: opacity, transform; }
@@ -550,7 +581,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sidebar nav button::after { content: attr(data-label); position: absolute; z-index: 80; left: calc(100% + 13px); top: 50%; padding: 9px 12px; border-radius: var(--radius-sm); background: #fff; color: var(--ink); box-shadow: 0 12px 32px rgba(7,25,20,.22); font-size: 11px; font-weight: 650; letter-spacing: -.01em; line-height: 1; white-space: nowrap; opacity: 0; transform: translate(7px,-50%) scale(.98); pointer-events: none; transition: opacity .16s ease, transform .2s cubic-bezier(.22,1,.36,1); }
   .sidebar nav button:hover::after, .sidebar nav button:focus-visible::after { opacity: 1; transform: translate(0,-50%) scale(1); }
   .baseline-box, .profile-block > span, .profile-block em { display: none; }
-  .profile-block { margin-top: auto; border: 0; justify-content: center; }
+  .tour-restart { position: relative; width: 40px; margin-top: auto; padding: 8px; justify-content: center; overflow: visible; }
+  .tour-restart strong { display: none; }
+  .tour-restart::after { content: attr(data-label); position: absolute; z-index: 80; left: calc(100% + 13px); top: 50%; padding: 9px 12px; border-radius: var(--radius-sm); background: #fff; color: var(--ink); box-shadow: 0 12px 32px rgba(7,25,20,.22); font-size: 11px; font-weight: 650; white-space: nowrap; opacity: 0; transform: translate(7px,-50%); pointer-events: none; }
+  .tour-restart:hover::after, .tour-restart:focus-visible::after { opacity: 1; transform: translate(0,-50%); }
+  .profile-block { margin-top: 10px; border: 0; justify-content: center; }
   .week-grid { overflow-x: auto; grid-template-columns: repeat(7,130px); }
 }
 
@@ -583,6 +618,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sidebar nav button { width: auto; padding: 8px 14px; }
   .sidebar nav button::after { left: 50%; top: auto; bottom: calc(100% + 11px); transform: translate(-50%,6px) scale(.98); }
   .sidebar nav button:hover::after, .sidebar nav button:focus-visible::after { transform: translate(-50%,0) scale(1); }
+  .tour-restart { display: none; }
   .app-main { padding: 0 16px 85px; }
   .app-header { align-items: flex-start; padding: 22px 0; flex-direction: column; }
   .header-actions { width: 100%; overflow-x: auto; }
