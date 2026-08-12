@@ -545,8 +545,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sidebar > .logo strong, .sidebar nav button:not(.active) { }
   .sidebar > .logo { margin-inline: 0; }
   .sidebar > .logo strong, .sidebar nav button { font-size: 0; }
-  .sidebar nav button { justify-content: center; }
+  .sidebar nav button { position: relative; justify-content: center; overflow: visible; }
   .sidebar nav button span { font-size: 17px; }
+  .sidebar nav button::after { content: attr(data-label); position: absolute; z-index: 80; left: calc(100% + 13px); top: 50%; padding: 9px 12px; border-radius: var(--radius-sm); background: #fff; color: var(--ink); box-shadow: 0 12px 32px rgba(7,25,20,.22); font-size: 11px; font-weight: 650; letter-spacing: -.01em; line-height: 1; white-space: nowrap; opacity: 0; transform: translate(7px,-50%) scale(.98); pointer-events: none; transition: opacity .16s ease, transform .2s cubic-bezier(.22,1,.36,1); }
+  .sidebar nav button:hover::after, .sidebar nav button:focus-visible::after { opacity: 1; transform: translate(0,-50%) scale(1); }
   .baseline-box, .profile-block > span, .profile-block em { display: none; }
   .profile-block { margin-top: auto; border: 0; justify-content: center; }
   .week-grid { overflow-x: auto; grid-template-columns: repeat(7,130px); }
@@ -579,6 +581,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sidebar > .logo, .baseline-box, .profile-block { display: none; }
   .sidebar nav { width: 100%; display: flex; justify-content: space-around; }
   .sidebar nav button { width: auto; padding: 8px 14px; }
+  .sidebar nav button::after { left: 50%; top: auto; bottom: calc(100% + 11px); transform: translate(-50%,6px) scale(.98); }
+  .sidebar nav button:hover::after, .sidebar nav button:focus-visible::after { transform: translate(-50%,0) scale(1); }
   .app-main { padding: 0 16px 85px; }
   .app-header { align-items: flex-start; padding: 22px 0; flex-direction: column; }
   .header-actions { width: 100%; overflow-x: auto; }

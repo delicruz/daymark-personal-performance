@@ -160,7 +160,7 @@ function Sidebar({ view, setView, exit }: { view: View; setView: (view: View) =>
     <aside className="sidebar">
       <Logo dark />
       <nav aria-label="Dashboard navigation">
-        {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
+        {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} aria-label={item.label} data-label={item.label} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
       </nav>
       <div className="baseline-box"><span>BASELINE</span><strong>24 of 30 days</strong><div><i /></div><small>6 more days to improve accuracy</small></div>
       <button className="profile-block" onClick={exit}><b>TD</b><span><strong>Tri Dung</strong><small>Personal workspace</small></span><em>⋯</em></button>
