@@ -57,17 +57,17 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
 
       <section className="hero-shell">
         <div className="hero-copy">
-          <div className="eyebrow"><span>✦</span> Personal productivity, made clearer</div>
-          <h1>Plan tomorrow<br />with <em>better signals.</em></h1>
+          <div className="eyebrow"><span>✦</span> Personal capacity, made visible</div>
+          <h1>Know your capacity.<br /><em>Plan your best work.</em></h1>
           <p className="hero-lead">
-            Daymark learns from your routines, energy and calendar to forecast your focus—then shows you exactly what is shaping the day ahead.
+            Daymark turns your energy, routines and calendar into one explainable forecast for the day ahead.
           </p>
           <div className="hero-actions">
-            <button className="primary-cta" onClick={onStart}>Build my baseline <span>↗</span></button>
+            <button className="primary-cta" onClick={onStart}>See tomorrow clearly <span>↗</span></button>
             <button className="demo-link" onClick={onDemo}><span className="play">▶</span> Explore the live demo</button>
           </div>
           <div className="trust-line">
-            <span>✓ No credit card</span><span>✓ Your data stays yours</span><span>✓ Set up in 2 minutes</span>
+            <span>✓ Your baseline</span><span>✓ Your explanation</span><span>✓ Your data</span>
           </div>
         </div>
 
@@ -104,10 +104,10 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
       </section>
 
       <section className="metrics-band" aria-label="Product benefits">
-        <div><i aria-hidden="true">☀</i><strong>60 sec</strong><span>Daily check-in</span></div>
-        <div><i aria-hidden="true">↗</i><strong>7–14 days</strong><span>To learn your baseline</span></div>
-        <div><i aria-hidden="true">◇</i><strong>100%</strong><span>User-controlled data</span></div>
-        <p>Less guessing.<br /><em>More intentional days.</em></p>
+        <div><i aria-hidden="true">☀</i><strong>Check in</strong><span>60 seconds each day</span></div>
+        <div><i aria-hidden="true">↗</i><strong>Understand</strong><span>See what shapes tomorrow</span></div>
+        <div><i aria-hidden="true">◇</i><strong>Act</strong><span>Get one useful next move</span></div>
+        <p>One calm answer.<br /><em>Every morning.</em></p>
       </section>
 
       <section className="how-section" id="how">
@@ -117,9 +117,9 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
           <p>Daymark uses small, meaningful signals chosen by you. No keystrokes, screenshots, message contents or hidden monitoring.</p>
         </div>
         <div className="steps-grid">
-          <article><span>01</span><div className="step-symbol">☼</div><h3>Check in</h3><p>Share sleep, energy, stress and your three priorities in under a minute.</p></article>
-          <article><span>02</span><div className="step-symbol">▦</div><h3>See the signals</h3><p>We combine your check-in with meeting load and available focus blocks.</p></article>
-          <article><span>03</span><div className="step-symbol">✦</div><h3>Plan with clarity</h3><p>Get an explainable range, confidence level and one practical action.</p></article>
+          <article className="step-primary"><span>01 · CHECK IN</span><div className="step-symbol">☼</div><h3>A minute of input.<br />A day of context.</h3><p>Share sleep, energy, stress and your three priorities. Nothing invasive, and nothing hidden.</p><div className="step-preview checkin-preview"><span><small>ENERGY</small><b>4 / 5</b></span><span><small>STRESS</small><b>2 / 5</b></span><span><small>SLEEP</small><b>7h 42m</b></span></div></article>
+          <article><span>02 · UNDERSTAND</span><div className="step-symbol">▦</div><h3>See what is shaping tomorrow.</h3><p>Your forecast connects wellbeing with meeting load and available focus time.</p><div className="step-preview signal-preview"><span><i className="positive-bg" />Sleep quality <b>+11</b></span><span><i className="negative-bg" />Meeting load <b>−7</b></span></div></article>
+          <article><span>03 · ACT</span><div className="step-symbol">✦</div><h3>Leave with one clear move.</h3><p>No overwhelming advice feed—just the most useful adjustment for the day.</p><div className="step-preview action-preview"><small>BEST NEXT MOVE</small><strong>Protect 9–11am for your hardest priority.</strong></div></article>
         </div>
       </section>
 
