@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
@@ -160,7 +160,7 @@ function Sidebar({ view, setView, exit }: { view: View; setView: (view: View) =>
     <aside className="sidebar">
       <Logo dark />
       <nav aria-label="Dashboard navigation">
-        {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
+        {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
       </nav>
       <div className="baseline-box"><span>BASELINE</span><strong>24 of 30 days</strong><div><i /></div><small>6 more days to improve accuracy</small></div>
       <button className="profile-block" onClick={exit}><b>TD</b><span><strong>Tri Dung</strong><small>Personal workspace</small></span><em>⋯</em></button>
@@ -256,11 +256,30 @@ function CheckInModal({ modal, close, onSaved }: { modal: Exclude<Modal, null>; 
 
 function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; initialOnboarding?: boolean }) {
   const [view, setView] = useState<View>("today");
+  const [transitionState, setTransitionState] = useState<"ready" | "leaving" | "entering">("ready");
   const [modal, setModal] = useState<Modal>(initialOnboarding ? "onboarding" : null);
   const [prediction, setPrediction] = useState(74);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titles = useMemo(() => ({ today: "Today", forecast: "Forecast", insights: "Insights", report: "Weekly report", settings: "Settings" }), []);
   useEffect(() => { document.title = `${titles[view]} · Daymark`; }, [view, titles]);
-  return <main className="app-shell"><Sidebar view={view} setView={setView} exit={exit} /><div className="app-main">{view === "today" && <Today setModal={setModal} prediction={prediction} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} />}<footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={(score) => { if (score) setPrediction(score); setModal(null); localStorage.setItem("daymark-checkin", new Date().toISOString()); }} />}</main>;
+  useEffect(() => () => { if (transitionTimer.current) clearTimeout(transitionTimer.current); }, []);
+
+  const changeView = (nextView: View) => {
+    if (nextView === view || transitionState !== "ready") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setView(nextView);
+      return;
+    }
+
+    setTransitionState("leaving");
+    transitionTimer.current = window.setTimeout(() => {
+      setView(nextView);
+      setTransitionState("entering");
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => setTransitionState("ready")));
+    }, 150);
+  };
+
+  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={exit} /><div className="app-main"><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} prediction={prediction} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={(score) => { if (score) setPrediction(score); setModal(null); localStorage.setItem("daymark-checkin", new Date().toISOString()); }} />}</main>;
 }
 
 export default function Home() {
