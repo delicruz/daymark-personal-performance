@@ -4,6 +4,33 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
+type DaymarkUser = { id: string; email: string; displayName: string };
+type UserProfile = { displayName: string; email: string; goal: string; calendarConnected: boolean };
+type CheckinRecord = { id: number; entryDate: string; entryType: "morning" | "evening"; energy: number | null; stress: number | null; sleepMinutes: number | null; workload: string | null; plannedFocusMinutes: number | null; productivity: number | null; focusedMinutes: number | null; reflection: string | null; prediction: number | null };
+type PriorityRecord = { id: number; title: string; impact: string; completed: boolean };
+type DaymarkData = { user: DaymarkUser; profile: UserProfile | null; checkins: CheckinRecord[]; latestMorning: CheckinRecord | null; priorities: PriorityRecord[]; forecast: number; baselineDays: number };
+type CheckinPayload = { entryType: "morning" | "evening"; energy: number; stress: number; focusMinutes: number; sleepMinutes: number; workload: string; productivity: number; reflection: string };
+
+const demoData: DaymarkData = {
+  user: { id: "demo", email: "demo@daymark.test", displayName: "Tri Dung" },
+  profile: { displayName: "Tri Dung", email: "demo@daymark.test", goal: "Improve daily focus", calendarConnected: false },
+  checkins: [],
+  latestMorning: { id: 0, entryDate: "", entryType: "morning", energy: 4, stress: 2, sleepMinutes: 462, workload: "normal", plannedFocusMinutes: 120, productivity: null, focusedMinutes: null, reflection: null, prediction: 74 },
+  priorities: [
+    { id: -1, title: "Finish project proposal", impact: "HIGH IMPACT", completed: true },
+    { id: -2, title: "Review research notes", impact: "45 MIN", completed: true },
+    { id: -3, title: "Plan tomorrow's focus block", impact: "20 MIN", completed: false },
+  ],
+  forecast: 74,
+  baselineDays: 0,
+};
+
+async function daymarkAction(payload: Record<string, unknown>) {
+  const response = await fetch("/api/daymark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "Your changes could not be saved.");
+  return result as DaymarkData;
+}
 
 const week = [
   { day: "Mon", date: "12", score: 74, tone: "good", note: "2h focus block" },
@@ -104,7 +131,7 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
   return <div className="tour-layer"><div className="tour-catcher" /><div className="tour-highlight" style={highlight} /><section ref={cardRef} tabIndex={-1} className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={cardPosition}><div className="tour-topline"><span>{current.eyebrow}</span><button onClick={finish} aria-label="Close guided tour">×</button></div><h2 id="tour-title">{current.title}</h2><p>{current.body}</p><div className="tour-progress" aria-label={`Step ${step + 1} of ${tourSteps.length}`}>{tourSteps.map((item, index) => <i key={item.target} className={index === step ? "active" : index < step ? "complete" : ""} />)}</div><div className="tour-actions"><button className="tour-skip" onClick={finish}>Skip tour</button><div>{step > 0 && <button className="tour-back" onClick={() => setStep(step - 1)}>Back</button>}<button className="tour-next" onClick={() => step === tourSteps.length - 1 ? finish() : setStep(step + 1)}>{step === tourSteps.length - 1 ? "Finish" : "Next"}<span className="solid-arrow" aria-hidden="true" /></button></div></div></section></div>;
 }
 
-function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => void }) {
+function Marketing({ onStart, onDemo, onSignIn }: { onStart: () => void; onDemo: () => void; onSignIn: () => void }) {
   return (
     <main className="marketing">
       <header className="marketing-nav">
@@ -115,7 +142,7 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
           <a href="#science">Our approach</a>
         </nav>
         <div className="nav-actions">
-          <button className="link-button" onClick={onDemo}>Sign in</button>
+          <button className="link-button" onClick={onSignIn}>Sign in</button>
           <button className="small-cta" onClick={onStart}>Start free <span className="solid-arrow" aria-hidden="true" /></button>
         </div>
       </header>
@@ -220,16 +247,17 @@ function Marketing({ onStart, onDemo }: { onStart: () => void; onDemo: () => voi
   );
 }
 
-function Sidebar({ view, setView, exit, startTour }: { view: View; setView: (view: View) => void; exit: () => void; startTour: () => void }) {
+function Sidebar({ view, setView, exit, startTour, data }: { view: View; setView: (view: View) => void; exit: () => void; startTour: () => void; data: DaymarkData }) {
+  const initials = data.user.displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return (
     <aside className="sidebar">
       <Logo dark />
       <nav aria-label="Dashboard navigation" data-tour="navigation">
         {navItems.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} aria-label={item.label} data-label={item.label} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}
       </nav>
-      <div className="baseline-box"><span>BASELINE</span><strong>24 of 30 days</strong><div><i /></div><small>6 more days to improve accuracy</small></div>
+      <div className="baseline-box"><span>BASELINE</span><strong>{data.baselineDays} of 30 days</strong><div><i style={{ width: `${Math.min(100, data.baselineDays / 30 * 100)}%` }} /></div><small>{Math.max(0, 30 - data.baselineDays)} more days to improve accuracy</small></div>
       <button className="tour-restart" aria-label="Open guided tour" data-label="Guided tour" onClick={startTour}><span>?</span><strong>Guided tour</strong></button>
-      <button className="profile-block" onClick={exit}><b>TD</b><span><strong>Tri Dung</strong><small>Personal workspace</small></span><em>⋯</em></button>
+      <button className="profile-block" onClick={exit}><b>{initials || "DM"}</b><span><strong>{data.user.displayName}</strong><small>{data.user.email === "demo@daymark.test" ? "Demo workspace" : "Personal workspace"}</small></span><em>⋯</em></button>
     </aside>
   );
 }
@@ -240,26 +268,37 @@ function AppHeader({ title, subtitle, setModal }: { title: string; subtitle: str
   );
 }
 
-function Today({ setModal, prediction }: { setModal: (modal: Modal) => void; prediction: number }) {
+function Today({ setModal, data, onAddPriority, onTogglePriority }: { setModal: (modal: Modal) => void; data: DaymarkData; onAddPriority: (title: string) => Promise<void>; onTogglePriority: (id: number, completed: boolean) => Promise<void> }) {
+  const [addingPriority, setAddingPriority] = useState(false);
+  const [priorityTitle, setPriorityTitle] = useState("");
+  const morning = data.latestMorning;
+  const completed = data.priorities.filter((priority) => priority.completed).length;
+  const now = new Date();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const dayLabel = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(now).toUpperCase();
+  const tomorrowLabel = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(tomorrow).toUpperCase();
+  const firstName = data.user.displayName.split(/\s+/)[0] || "there";
+  const sleepHours = morning?.sleepMinutes ? `${Math.floor(morning.sleepMinutes / 60)}h ${morning.sleepMinutes % 60}m` : "Not recorded";
+  const submitPriority = async (event: FormEvent) => { event.preventDefault(); const title = priorityTitle.trim(); if (!title) return; await onAddPriority(title); setPriorityTitle(""); setAddingPriority(false); };
   return (
     <>
-      <AppHeader title="Good morning, Tri." subtitle="WEDNESDAY · 12 AUGUST" setModal={setModal} />
+      <AppHeader title={`Good morning, ${firstName}.`} subtitle={dayLabel} setModal={setModal} />
       <div className="dashboard-grid">
         <section className="outlook-card" data-tour="outlook">
           <div className="card-label"><span>✦</span> TOMORROW’S PRODUCTIVITY OUTLOOK <button aria-label="More options">•••</button></div>
           <div className="outlook-main">
-            <div><span className="outlook-date">THURSDAY · 13 AUGUST</span><h2>A strong day for<br /><em>deep work.</em></h2><p>Your outlook is above your 30-day average. Protect your morning focus window for the work that matters most.</p></div>
-            <div className="large-score-ring" style={{ "--score": prediction } as React.CSSProperties}><div><strong>{prediction}</strong><span>/100</span><small>GOOD</small></div></div>
+            <div><span className="outlook-date">{tomorrowLabel}</span><h2>A strong day for<br /><em>deep work.</em></h2><p>{data.baselineDays ? "This outlook now reflects your saved morning check-ins." : "Complete your first morning check-in to begin a personal baseline."}</p></div>
+            <div className="large-score-ring" style={{ "--score": data.forecast } as React.CSSProperties}><div><strong>{data.forecast}</strong><span>/100</span><small>GOOD</small></div></div>
           </div>
-          <div className="confidence-line"><span><i /> Moderate confidence</span><strong>Expected range {prediction - 7}–{prediction + 6}</strong><small>Based on 24 recorded days</small></div>
+          <div className="confidence-line"><span><i /> {data.baselineDays >= 14 ? "Moderate" : "Early"} confidence</span><strong>Expected range {data.forecast - 7}–{data.forecast + 6}</strong><small>Based on {data.baselineDays} recorded {data.baselineDays === 1 ? "day" : "days"}</small></div>
           <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE</small><strong>Protect 9–11am for your hardest priority.</strong><p>Your energy is typically highest before your first meeting.</p></div><button>View schedule <span>→</span></button></div>
         </section>
 
         <section className="checkin-card" data-tour="checkin">
-          <div className="card-label">TODAY’S CHECK-IN <span className="complete-pill">✓ COMPLETE</span></div>
-          <div className="wellbeing-row"><div><span>☼</span><small>ENERGY</small><strong>4 / 5</strong></div><div><span>◌</span><small>MOOD</small><strong>4 / 5</strong></div><div><span>⌁</span><small>STRESS</small><strong>2 / 5</strong></div></div>
-          <div className="sleep-line"><span>☾</span><div><small>LAST NIGHT’S SLEEP</small><strong>7h 42m <em>Good</em></strong></div></div>
-          <button className="text-action" onClick={() => setModal("morning")}>Edit check-in <span>→</span></button>
+          <div className="card-label">TODAY’S CHECK-IN {morning ? <span className="complete-pill">✓ SAVED</span> : <span>NOT STARTED</span>}</div>
+          <div className="wellbeing-row"><div><span>☼</span><small>ENERGY</small><strong>{morning?.energy ?? "–"} / 5</strong></div><div><span>◌</span><small>FOCUS PLAN</small><strong>{morning?.plannedFocusMinutes ?? "–"} min</strong></div><div><span>⌁</span><small>STRESS</small><strong>{morning?.stress ?? "–"} / 5</strong></div></div>
+          <div className="sleep-line"><span>☾</span><div><small>LAST NIGHT’S SLEEP</small><strong>{sleepHours} {morning && <em>{(morning.sleepMinutes ?? 0) >= 420 ? "Good" : "Low"}</em>}</strong></div></div>
+          <button className="text-action" onClick={() => setModal("morning")}>{morning ? "Edit" : "Start"} check-in <span>→</span></button>
         </section>
 
         <section className="factors-card" data-tour="factors">
@@ -274,9 +313,10 @@ function Today({ setModal, prediction }: { setModal: (modal: Modal) => void; pre
         </section>
 
         <section className="priorities-card" data-tour="priorities">
-          <div className="card-label">TODAY’S PRIORITIES <span>2 OF 3 COMPLETE</span></div>
-          {["Finish project proposal", "Review research notes", "Plan tomorrow’s focus block"].map((item, index) => <label key={item}><input type="checkbox" defaultChecked={index < 2} /><span>{item}</span><small>{index === 0 ? "HIGH IMPACT" : index === 1 ? "45 MIN" : "20 MIN"}</small></label>)}
-          <button className="text-action">+ Add priority</button>
+          <div className="card-label">TODAY’S PRIORITIES <span>{completed} OF {data.priorities.length} COMPLETE</span></div>
+          {data.priorities.length === 0 && <p className="empty-state">Choose one meaningful outcome for today.</p>}
+          {data.priorities.map((priority) => <label key={priority.id}><input type="checkbox" checked={priority.completed} onChange={(event) => void onTogglePriority(priority.id, event.target.checked)} /><span>{priority.title}</span><small>{priority.impact}</small></label>)}
+          {addingPriority ? <form className="priority-form" onSubmit={submitPriority}><input aria-label="New priority" placeholder="What matters most today?" value={priorityTitle} onChange={(event) => setPriorityTitle(event.target.value)} maxLength={180} /><button type="submit">Add</button><button type="button" onClick={() => setAddingPriority(false)}>Cancel</button></form> : <button className="text-action" onClick={() => setAddingPriority(true)}>+ Add priority</button>}
         </section>
 
         <section className="trend-card">
@@ -302,22 +342,32 @@ function Report({ setModal }: { setModal: (modal: Modal) => void }) {
   return <><AppHeader title="A week in perspective." subtitle="WEEKLY REPORT · 5–11 AUGUST" setModal={setModal} /><section className="report-cover"><span>WEEK 32</span><div><p>YOUR WEEKLY SUMMARY</p><h2>You made space for<br /><em>what mattered.</em></h2><small>Three strong focus days · 82% of priorities completed</small></div><div className="report-score"><strong>76</strong><span>WEEKLY SCORE</span><em>↗ 6 points</em></div></section><div className="report-metrics"><article><span>PRIORITIES</span><strong>14 / 17</strong><div><i style={{width:"82%"}} /></div><small>82% complete</small></article><article><span>FOCUS TIME</span><strong>11h 34m</strong><div><i style={{width:"72%"}} /></div><small>1h 39m daily average</small></article><article><span>MEETING TIME</span><strong>8h 15m</strong><div><i className="orange" style={{width:"48%"}} /></div><small>12 meetings total</small></article></div><div className="two-column"><section className="page-card"><div className="card-label">THIS WEEK’S STORY</div><h3 className="story-title">Your best work happened before noon.</h3><p className="story-copy">Four of your five highest-scoring focus sessions started before 10am. Days with a protected morning block averaged <strong>12 points higher</strong> than days without one.</p><div className="story-callout"><span>✦</span><p><small>TRY THIS NEXT WEEK</small><strong>Reserve Monday, Wednesday and Thursday mornings for priority work.</strong></p></div></section><section className="page-card"><div className="card-label">DAILY SCORES</div><div className="report-days">{week.slice(0,7).map(d=><div key={d.day}><span style={{height:`${d.score}%`}} className={d.score > 78 ? "high" : ""}><b>{d.score}</b></span><small>{d.day}</small></div>)}</div></section></div><button className="download-report" onClick={() => window.print()}>↓ Download weekly report</button></>;
 }
 
-function Settings({ setModal }: { setModal: (modal: Modal) => void }) {
-  const [connected, setConnected] = useState(false);
-  const [deleted, setDeleted] = useState(false);
-  const exportData = () => { const data = JSON.stringify({ product: "Daymark", exportedAt: new Date().toISOString(), checkIns: 24, productivityAverage: 71 }, null, 2); const url = URL.createObjectURL(new Blob([data], {type:"application/json"})); const a=document.createElement("a"); a.href=url; a.download="daymark-data.json"; a.click(); URL.revokeObjectURL(url); };
-  return <><AppHeader title="Your data, your choices." subtitle="DATA & SETTINGS" setModal={setModal} /><div className="settings-layout"><nav aria-label="Settings sections"><button className="active">Profile</button><button>Productivity score</button><button>Integrations</button><button>Reminders</button><button>Privacy & consent</button><button>Export & deletion</button></nav><div className="settings-content"><section className="settings-section"><div><h2>Calendar connection</h2><p>Daymark only reads event times and availability. Titles, descriptions, attendees and meeting contents are never stored.</p></div><div className="integration-row"><span className="calendar-logo">31</span><div><strong>Google Calendar</strong><small>{connected ? "Connected · Last synced moments ago" : "Not connected"}</small></div><button className={connected ? "connected-button" : "outline-button"} onClick={()=>setConnected(!connected)}>{connected ? "✓ Connected" : "Connect"}</button></div></section><section className="settings-section"><div><h2>Productivity score</h2><p>Your score combines four signals. These default weights can be personalised once your baseline is complete.</p></div>{[["Priority completion",35],["Self-rated productivity",30],["Focus target achieved",25],["Schedule adherence",10]].map(([label,value])=><div className="weight-row" key={label}><span>{label}</span><div><i style={{width:`${value}%`}} /></div><strong>{value}%</strong></div>)}</section><section className="settings-section privacy-control"><div><h2>Privacy controls</h2><p>Review consent, download a copy of your information, or permanently remove everything.</p></div><div className="control-row"><span>↧</span><div><strong>Export my data</strong><small>Download check-ins, outcomes and predictions as JSON.</small></div><button onClick={exportData}>Download</button></div><div className="control-row danger"><span>×</span><div><strong>Delete my account and data</strong><small>This permanently removes all personal information.</small></div><button onClick={()=>setDeleted(true)}>{deleted ? "Request recorded" : "Delete data"}</button></div></section><div className="privacy-note"><span>◇</span><p><strong>Private by default.</strong> Your personal forecast is never shared with an employer, used to rank you, or sold to advertisers.</p></div></div></div></>;
+function Settings({ setModal, data, onCalendarToggle, onProfileUpdate, onDelete }: { setModal: (modal: Modal) => void; data: DaymarkData; onCalendarToggle: (connected: boolean) => Promise<void>; onProfileUpdate: (displayName: string, goal: string) => Promise<void>; onDelete: () => Promise<void> }) {
+  const [displayName, setDisplayName] = useState(data.profile?.displayName ?? data.user.displayName);
+  const [goal, setGoal] = useState(data.profile?.goal ?? "Improve daily focus");
+  const [saved, setSaved] = useState(false);
+  const connected = Boolean(data.profile?.calendarConnected);
+  const exportData = () => { const exported = JSON.stringify({ product: "Daymark", exportedAt: new Date().toISOString(), user: data.user, profile: data.profile, checkins: data.checkins, priorities: data.priorities }, null, 2); const url = URL.createObjectURL(new Blob([exported], {type:"application/json"})); const a=document.createElement("a"); a.href=url; a.download="daymark-data.json"; a.click(); URL.revokeObjectURL(url); };
+  const saveProfile = async (event: FormEvent) => { event.preventDefault(); await onProfileUpdate(displayName, goal); setSaved(true); window.setTimeout(() => setSaved(false), 1800); };
+  return <><AppHeader title="Your data, your choices." subtitle="DATA & SETTINGS" setModal={setModal} /><div className="settings-layout"><nav aria-label="Settings sections"><button className="active">Profile</button><button>Productivity score</button><button>Integrations</button><button>Reminders</button><button>Privacy & consent</button><button>Export & deletion</button></nav><div className="settings-content"><section className="settings-section"><div><h2>Personal workspace</h2><p>Your account and preferences are stored privately and attached to your signed-in identity.</p></div><form className="profile-form" onSubmit={saveProfile}><label>DISPLAY NAME<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} /></label><label>ACCOUNT EMAIL<input value={data.user.email} disabled /></label><label>PRIMARY GOAL<select value={goal} onChange={(event) => setGoal(event.target.value)}><option>Improve daily focus</option><option>Plan more realistically</option><option>Build healthier routines</option></select></label><button className="dark-button" type="submit">{saved ? "✓ Saved" : "Save profile"}</button></form></section><section className="settings-section"><div><h2>Calendar connection</h2><p>Daymark only reads event times and availability. Titles, descriptions, attendees and meeting contents are never stored.</p></div><div className="integration-row"><span className="calendar-logo">31</span><div><strong>Google Calendar</strong><small>{connected ? "Enabled for your workspace" : "Not connected"}</small></div><button className={connected ? "connected-button" : "outline-button"} onClick={()=>void onCalendarToggle(!connected)}>{connected ? "✓ Connected" : "Connect"}</button></div></section><section className="settings-section"><div><h2>Productivity score</h2><p>Your early score combines explicit inputs. These weights can be personalised once enough labelled outcomes exist.</p></div>{[["Energy",35],["Sleep duration",25],["Stress",20],["Planned focus & workload",20]].map(([label,value])=><div className="weight-row" key={label}><span>{label}</span><div><i style={{width:`${value}%`}} /></div><strong>{value}%</strong></div>)}</section><section className="settings-section privacy-control"><div><h2>Privacy controls</h2><p>Download a complete copy of your information or permanently remove it.</p></div><div className="control-row"><span>↧</span><div><strong>Export my data</strong><small>Download your real check-ins, outcomes, profile and priorities as JSON.</small></div><button onClick={exportData}>Download</button></div><div className="control-row danger"><span>×</span><div><strong>Delete my account and data</strong><small>This removes all Daymark records associated with this account.</small></div><button onClick={()=>void onDelete()}>Delete data</button></div></section><div className="privacy-note"><span>◇</span><p><strong>Private by default.</strong> Every database query is scoped to your signed-in user ID.</p></div></div></div></>;
 }
 
-function CheckInModal({ modal, close, onSaved }: { modal: Exclude<Modal, null>; close: () => void; onSaved: (score?: number) => void }) {
+function CheckInModal({ modal, close, onSaved }: { modal: Exclude<Modal, null>; close: () => void; onSaved: (payload: CheckinPayload) => Promise<void> }) {
   const [step, setStep] = useState(1);
   const [energy, setEnergy] = useState(4);
   const [stress, setStress] = useState(2);
   const [focus, setFocus] = useState(120);
+  const [sleep, setSleep] = useState("7h 42m");
+  const [workload, setWorkload] = useState("normal");
+  const [productivity, setProductivity] = useState(8);
+  const [reflection, setReflection] = useState("");
+  const [saving, setSaving] = useState(false);
   const onboarding = modal === "onboarding";
   const evening = modal === "evening";
-  const submit = (event: FormEvent) => { event.preventDefault(); if (onboarding && step < 3) { setStep(step + 1); return; } onSaved(Math.min(88, 68 + energy * 3 - stress + Math.round(focus / 60))); };
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}><form className="checkin-modal" onSubmit={submit}><button type="button" className="modal-close" onClick={close} aria-label="Close">×</button>{onboarding ? <><span className="modal-kicker">SETUP · {step} OF 3</span><div className="modal-progress"><i style={{width:`${step/3*100}%`}} /></div>{step===1&&<><h2>What would you like<br />to improve?</h2><p>Choose your main goal. You can change this later.</p><div className="goal-options"><label><input aria-label="Improve daily focus" type="radio" name="goal" defaultChecked/><span>✦</span><strong>Improve daily focus</strong><small>Find and protect your best deep-work windows</small></label><label><input aria-label="Plan more realistically" type="radio" name="goal"/><span>↗</span><strong>Plan more realistically</strong><small>Match daily workload to your actual capacity</small></label><label><input aria-label="Build healthier routines" type="radio" name="goal"/><span>☼</span><strong>Build healthier routines</strong><small>Understand how habits affect your work</small></label></div></>}{step===2&&<><h2>Set your typical<br />working day.</h2><p>This helps us understand your calendar availability.</p><div className="field-row"><label>START TIME<input type="time" defaultValue="09:00" /></label><label>END TIME<input type="time" defaultValue="17:00" /></label></div><label className="full-field">WORKING DAYS<select defaultValue="weekdays"><option value="weekdays">Monday to Friday</option><option>Every day</option></select></label></>}{step===3&&<><h2>You’re in control<br />of every signal.</h2><p>Start with manual check-ins. Calendar summaries are optional and never include event contents.</p><div className="consent-list"><label><input aria-label="Daily check-ins" type="checkbox" defaultChecked/><span><strong>Daily check-ins</strong><small>Sleep, energy, stress, goals and outcomes</small></span></label><label><input aria-label="Calendar summaries" type="checkbox"/><span><strong>Calendar summaries</strong><small>Meeting count, duration and free blocks only</small></span></label><label><input aria-label="Personal model training" type="checkbox" defaultChecked/><span><strong>Personal model training</strong><small>Use my data to improve my own forecasts</small></span></label></div></>}<button className="modal-submit">{step<3?"Continue":"Start my baseline"}<span>→</span></button></> : <><span className="modal-kicker">{evening ? "EVENING REVIEW" : "MORNING CHECK-IN"} · UNDER 60 SECONDS</span><h2>{evening ? "How did today go?" : "How are you starting today?"}</h2><p>{evening ? "Your reflection helps tomorrow’s forecast improve." : "Small signals help Daymark understand your capacity."}</p>{evening ? <><label className="range-field"><span><strong>Productivity</strong><b>8 / 10</b></span><input aria-label="Productivity" type="range" min="1" max="10" defaultValue="8" /></label><label className="range-field"><span><strong>Focused work</strong><b>{focus} min</b></span><input aria-label="Focused work" type="range" min="0" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><label className="full-field">SHORT REFLECTION<textarea placeholder="What helped or interrupted you today?" /></label></> : <><label className="range-field"><span><strong>Energy</strong><b>{energy} / 5</b></span><input aria-label="Energy" type="range" min="1" max="5" value={energy} onChange={e=>setEnergy(Number(e.target.value))}/></label><label className="range-field"><span><strong>Stress</strong><b>{stress} / 5</b></span><input aria-label="Stress" type="range" min="1" max="5" value={stress} onChange={e=>setStress(Number(e.target.value))}/></label><label className="range-field"><span><strong>Planned focus time</strong><b>{focus} min</b></span><input aria-label="Planned focus time" type="range" min="30" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><div className="field-row"><label>SLEEP DURATION<input type="text" defaultValue="7h 42m" /></label><label>WORKLOAD<select defaultValue="normal"><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label></div></>}<button className="modal-submit">Save {evening ? "review" : "check-in"}<span>→</span></button></>}</form></div>;
+  useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [close]);
+  const sleepMinutes = useMemo(() => { const hours = Number(sleep.match(/(\d+)\s*h/i)?.[1] ?? 0); const minutes = Number(sleep.match(/(\d+)\s*m/i)?.[1] ?? 0); return hours * 60 + minutes; }, [sleep]);
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (onboarding && step < 3) { setStep(step + 1); return; } setSaving(true); try { await onSaved({ entryType: evening ? "evening" : "morning", energy, stress, focusMinutes: focus, sleepMinutes, workload, productivity, reflection }); } finally { setSaving(false); } };
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}><form className="checkin-modal" onSubmit={submit}><button type="button" className="modal-close" onClick={close} aria-label="Close">×</button>{onboarding ? <><span className="modal-kicker">SETUP · {step} OF 3</span><div className="modal-progress"><i style={{width:`${step/3*100}%`}} /></div>{step===1&&<><h2>What would you like<br />to improve?</h2><p>Choose your main goal. You can change this later.</p><div className="goal-options"><label><input aria-label="Improve daily focus" type="radio" name="goal" defaultChecked/><span>✦</span><strong>Improve daily focus</strong><small>Find and protect your best deep-work windows</small></label><label><input aria-label="Plan more realistically" type="radio" name="goal"/><span>↗</span><strong>Plan more realistically</strong><small>Match daily workload to your actual capacity</small></label><label><input aria-label="Build healthier routines" type="radio" name="goal"/><span>☼</span><strong>Build healthier routines</strong><small>Understand how habits affect your work</small></label></div></>}{step===2&&<><h2>Set your typical<br />working day.</h2><p>This helps us understand your calendar availability.</p><div className="field-row"><label>START TIME<input type="time" defaultValue="09:00" /></label><label>END TIME<input type="time" defaultValue="17:00" /></label></div><label className="full-field">WORKING DAYS<select defaultValue="weekdays"><option value="weekdays">Monday to Friday</option><option>Every day</option></select></label></>}{step===3&&<><h2>You’re in control<br />of every signal.</h2><p>Your check-ins, outcomes and priorities are now saved to your private account.</p><div className="consent-list"><label><input aria-label="Daily check-ins" type="checkbox" defaultChecked/><span><strong>Daily check-ins</strong><small>Sleep, energy, stress, goals and outcomes</small></span></label><label><input aria-label="Calendar summaries" type="checkbox"/><span><strong>Calendar summaries</strong><small>Meeting count, duration and free blocks only</small></span></label><label><input aria-label="Personal model training" type="checkbox" defaultChecked/><span><strong>Personal model training</strong><small>Use my data to improve my own forecasts</small></span></label></div></>}<button className="modal-submit" disabled={saving}>{step<3?"Continue":saving?"Saving…":"Start my baseline"}<span>→</span></button></> : <><span className="modal-kicker">{evening ? "EVENING REVIEW" : "MORNING CHECK-IN"} · UNDER 60 SECONDS</span><h2>{evening ? "How did today go?" : "How are you starting today?"}</h2><p>{evening ? "Your reflection becomes a labelled outcome for future personal forecasts." : "Small signals help Daymark understand your capacity."}</p>{evening ? <><label className="range-field"><span><strong>Productivity</strong><b>{productivity} / 10</b></span><input aria-label="Productivity" type="range" min="1" max="10" value={productivity} onChange={e=>setProductivity(Number(e.target.value))} /></label><label className="range-field"><span><strong>Focused work</strong><b>{focus} min</b></span><input aria-label="Focused work" type="range" min="0" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><label className="full-field">SHORT REFLECTION<textarea value={reflection} onChange={(event) => setReflection(event.target.value)} placeholder="What helped or interrupted you today?" /></label></> : <><label className="range-field"><span><strong>Energy</strong><b>{energy} / 5</b></span><input aria-label="Energy" type="range" min="1" max="5" value={energy} onChange={e=>setEnergy(Number(e.target.value))}/></label><label className="range-field"><span><strong>Stress</strong><b>{stress} / 5</b></span><input aria-label="Stress" type="range" min="1" max="5" value={stress} onChange={e=>setStress(Number(e.target.value))}/></label><label className="range-field"><span><strong>Planned focus time</strong><b>{focus} min</b></span><input aria-label="Planned focus time" type="range" min="30" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><div className="field-row"><label>SLEEP DURATION<input type="text" value={sleep} onChange={(event) => setSleep(event.target.value)} /></label><label>WORKLOAD<select value={workload} onChange={(event) => setWorkload(event.target.value)}><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label></div></>}<button className="modal-submit" disabled={saving}>{saving ? "Saving…" : `Save ${evening ? "review" : "check-in"}`}<span>→</span></button></>}</form></div>;
 }
 
 function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; initialOnboarding?: boolean }) {
@@ -325,11 +375,13 @@ function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; init
   const [transitionState, setTransitionState] = useState<"ready" | "leaving" | "entering">("ready");
   const [modal, setModal] = useState<Modal>(initialOnboarding ? "onboarding" : null);
   const [tourOpen, setTourOpen] = useState(false);
-  const [prediction, setPrediction] = useState(74);
+  const [data, setData] = useState<DaymarkData>(demoData);
+  const [syncMessage, setSyncMessage] = useState("Loading your workspace…");
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titles = useMemo(() => ({ today: "Today", forecast: "Forecast", insights: "Insights", report: "Weekly report", settings: "Settings" }), []);
   useEffect(() => { document.title = `${titles[view]} · Daymark`; }, [view, titles]);
   useEffect(() => () => { if (transitionTimer.current) clearTimeout(transitionTimer.current); }, []);
+  useEffect(() => { let active = true; fetch("/api/daymark").then(async (response) => { const payload = await response.json(); if (!active) return; if (!response.ok) { setSyncMessage(response.status === 401 ? "Demo mode · Sign in to save your personal data" : payload.error ?? "Data sync is unavailable"); return; } setData(payload as DaymarkData); setSyncMessage("Saved privately to your account"); }).catch(() => { if (active) setSyncMessage("Demo mode · Data sync is unavailable"); }); return () => { active = false; }; }, []);
   useEffect(() => {
     if (initialOnboarding || localStorage.getItem("daymark-guided-tour:v1")) return;
     const timer = window.setTimeout(() => setTourOpen(true), 650);
@@ -357,12 +409,21 @@ function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; init
     window.setTimeout(() => setTourOpen(true), 80);
   };
 
-  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={exit} startTour={startTour} /><div className="app-main"><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} prediction={prediction} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={(score) => { const beginTour = modal === "onboarding"; if (score) setPrediction(score); setModal(null); localStorage.setItem("daymark-checkin", new Date().toISOString()); if (beginTour) window.setTimeout(() => setTourOpen(true), 300); }} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
+  const updateData = async (payload: Record<string, unknown>) => { try { setSyncMessage("Saving…"); const next = await daymarkAction(payload); setData(next); setSyncMessage("Saved privately to your account"); return true; } catch (error) { setSyncMessage(error instanceof Error ? error.message : "Your changes could not be saved."); return false; } };
+  const saveCheckin = async (payload: CheckinPayload) => { const beginTour = modal === "onboarding"; const saved = await updateData({ action: "checkin.save", ...payload }); if (!saved) return; setModal(null); if (beginTour) window.setTimeout(() => setTourOpen(true), 300); };
+  const addPriority = async (title: string) => { await updateData({ action: "priority.create", title, impact: "MEDIUM IMPACT" }); };
+  const togglePriority = async (id: number, completed: boolean) => { await updateData({ action: "priority.toggle", id, completed }); };
+  const deleteData = async () => { if (!window.confirm("Permanently delete all of your Daymark check-ins, priorities and settings?")) return; const response = await fetch("/api/daymark", { method: "DELETE" }); if (!response.ok) { const payload = await response.json(); setSyncMessage(payload.error ?? "Your data could not be deleted."); return; } setData({ ...demoData, user: data.user, profile: { ...demoData.profile!, displayName: data.user.displayName, email: data.user.email } }); setSyncMessage("Your Daymark data has been deleted"); };
+  const handleExit = () => { if (!["demo", "local-daymark-user"].includes(data.user.id)) { window.location.assign("/signout-with-chatgpt?return_to=%2F"); return; } exit(); };
+
+  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={handleExit} startTour={startTour} data={data} /><div className="app-main"><div className="sync-banner" role="status"><span className={syncMessage.startsWith("Saved") ? "online" : ""} />{syncMessage}</div><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} data={data} onAddPriority={addPriority} onTogglePriority={togglePriority} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} data={data} onCalendarToggle={async (connected) => { await updateData({ action: "calendar.toggle", connected }); }} onProfileUpdate={async (displayName, goal) => { await updateData({ action: "profile.update", displayName, goal }); }} onDelete={deleteData} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={saveCheckin} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
 }
 
 export default function Home() {
   const [experience, setExperience] = useState<"marketing" | "demo" | "onboarding">("marketing");
   useEffect(() => { document.title = experience === "marketing" ? "Daymark · Personal productivity forecasting" : "Today · Daymark"; }, [experience]);
-  if (experience === "marketing") return <Marketing onStart={() => setExperience("onboarding")} onDemo={() => setExperience("demo")} />;
+  useEffect(() => { fetch("/api/daymark?session=1").then((response) => { if (response.ok) setExperience("demo"); }).catch(() => {}); }, []);
+  const signIn = (onboarding = false) => { if (["localhost", "127.0.0.1"].includes(window.location.hostname)) { setExperience(onboarding ? "onboarding" : "demo"); return; } window.location.assign("/signin-with-chatgpt?return_to=%2F"); };
+  if (experience === "marketing") return <Marketing onStart={() => signIn(true)} onDemo={() => setExperience("demo")} onSignIn={() => signIn(false)} />;
   return <Dashboard initialOnboarding={experience === "onboarding"} exit={() => setExperience("marketing")} />;
 }

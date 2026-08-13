@@ -429,6 +429,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .privacy-note span { font-size: 22px; }
 .privacy-note p { margin: 0; color: var(--muted); font-size: 9px; }
 .privacy-note strong { color: var(--ink); }
+.sync-banner { width: fit-content; margin: 14px 0 -2px auto; padding: 7px 11px; display: flex; align-items: center; gap: 7px; border-radius: 999px; background: rgba(255,255,255,.72); color: var(--muted); font-size: 8px; font-weight: 650; box-shadow: 0 5px 18px rgba(24,56,47,.05); }
+.sync-banner > span { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); }
+.sync-banner > span.online { background: #6caf7a; }
+.profile-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.profile-form label { color: var(--muted); font: 700 7px var(--font-geist-mono),monospace; letter-spacing: .09em; }
+.profile-form label:nth-child(3) { grid-column: 1 / -1; }
+.profile-form input, .profile-form select { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #f7f8f4; color: var(--ink); outline: none; font: 550 11px var(--font-geist-sans),sans-serif; }
+.profile-form input:disabled { color: var(--muted); cursor: not-allowed; }
+.profile-form button { width: fit-content; }
+.priority-form { margin-top: 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 7px; }
+.priority-form input { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: white; color: var(--ink); outline: none; font: 550 10px var(--font-geist-sans),sans-serif; }
+.priority-form button { padding: 9px 11px; border: 0; border-radius: var(--radius-sm); background: var(--ink); color: white; font-size: 8px; font-weight: 700; cursor: pointer; }
+.priority-form button:last-child { background: #e9ece5; color: var(--muted); }
+.empty-state { margin: 13px 0; padding: 14px; border-radius: var(--radius-sm); background: #f0f2ec; color: var(--muted); font-size: 10px; }
 
 /* Modals */
 .modal-backdrop { position: fixed; z-index: 100; inset: 0; padding: 30px; display: grid; place-content: center; background: rgba(11,29,24,.72); backdrop-filter: blur(5px); }
@@ -543,7 +557,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* Calm route changes: ease the old view away before the next one settles in. */
-.marketing, .app-shell { animation: experience-enter .38s cubic-bezier(.22, 1, .36, 1) both; }
+.marketing { animation: experience-enter .38s cubic-bezier(.22, 1, .36, 1) both; }
+.app-shell { animation: experience-fade .38s ease both; }
 .view-stage { min-height: calc(100vh - 175px); opacity: 1; transform: translateY(0) scale(1); filter: blur(0); transition: opacity .15s ease, transform .28s cubic-bezier(.22, 1, .36, 1), filter .18s ease; will-change: opacity, transform; }
 .view-stage.leaving { opacity: 0; transform: translateY(-5px) scale(.998); filter: blur(1px); pointer-events: none; }
 .view-stage.entering { opacity: 0; transform: translateY(12px) scale(.998); filter: blur(1px); pointer-events: none; }
@@ -551,6 +566,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes experience-enter {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes experience-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes section-reveal {
@@ -656,6 +676,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .calendar-stats > div { border-right: 0; }
   .insight-stats { grid-template-columns: 1fr; }
   .settings-section { padding: 20px; }
+  .profile-form { grid-template-columns: 1fr; }
+  .profile-form label:nth-child(3) { grid-column: auto; }
+  .priority-form { grid-template-columns: 1fr auto; }
+  .priority-form button:last-child { grid-column: 1 / -1; }
   .weight-row { grid-template-columns: 130px 1fr 30px; }
   .integration-row { align-items: flex-start; flex-wrap: wrap; }
   .integration-row button { margin-left: 49px; }
