@@ -1,5 +1,5 @@
 import { and, asc, desc, eq } from "drizzle-orm";
-import { getChatGPTUser, chatGPTSignInPath, type ChatGPTUser } from "../../chatgpt-auth";
+import { createClient } from "@supabase/supabase-js";
 import { getDb } from "../../../db";
 import { ensureDaymarkSchema } from "../../../db/daymark";
 import { checkins, priorities, users } from "../../../db/schema";
@@ -9,16 +9,33 @@ export const dynamic = "force-dynamic";
 const today = () => new Date().toISOString().slice(0, 10);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-async function requestUser(allowLocalDemo = true): Promise<ChatGPTUser | null> {
-  const user = await getChatGPTUser();
-  if (user) return user;
+type AuthenticatedUser = { userId: string; email: string; displayName: string };
+
+async function requestUser(request: Request, allowLocalDemo = true): Promise<AuthenticatedUser | null> {
+  const authorization = request.headers.get("authorization");
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (accessToken && supabaseUrl && supabasePublishableKey) {
+    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data, error } = await supabase.auth.getUser(accessToken);
+    if (!error && data.user?.email) {
+      const metadata = data.user.user_metadata as Record<string, unknown>;
+      const displayName = String(metadata.full_name ?? metadata.name ?? data.user.email.split("@")[0]);
+      return { userId: data.user.id, email: data.user.email, displayName };
+    }
+  }
+
   if (allowLocalDemo && process.env.NODE_ENV === "development") {
-    return { userId: "local-daymark-user", email: "local@daymark.test", displayName: "Local user", fullName: "Local user" };
+    return { userId: "local-daymark-user", email: "local@daymark.test", displayName: "Local user" };
   }
   return null;
 }
 
-async function bootstrapUser(user: ChatGPTUser) {
+async function bootstrapUser(user: AuthenticatedUser) {
   const db = getDb();
   await db.insert(users).values({ id: user.userId, email: user.email, displayName: user.displayName }).onConflictDoUpdate({
     target: users.id,
@@ -26,7 +43,7 @@ async function bootstrapUser(user: ChatGPTUser) {
   });
 }
 
-async function userData(user: ChatGPTUser) {
+async function userData(user: AuthenticatedUser) {
   const db = getDb();
   const date = today();
   const [profile] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
@@ -38,12 +55,12 @@ async function userData(user: ChatGPTUser) {
 }
 
 function unauthorized() {
-  return Response.json({ error: "Sign in is required to save personal data.", signInPath: chatGPTSignInPath("/") }, { status: 401 });
+  return Response.json({ error: "Sign in with Daymark to save personal data." }, { status: 401 });
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const user = await requestUser(url.searchParams.get("session") !== "1");
+  const user = await requestUser(request, url.searchParams.get("session") !== "1");
   if (!user) return unauthorized();
   try {
     await ensureDaymarkSchema();
@@ -56,7 +73,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requestUser();
+  const user = await requestUser(request);
   if (!user) return unauthorized();
   try {
     await ensureDaymarkSchema();
@@ -119,8 +136,8 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE() {
-  const user = await requestUser();
+export async function DELETE(request: Request) {
+  const user = await requestUser(request);
   if (!user) return unauthorized();
   try {
     await ensureDaymarkSchema();

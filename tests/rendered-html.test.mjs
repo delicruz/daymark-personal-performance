@@ -29,12 +29,13 @@ test("keeps persistent records scoped to an authenticated user", async () => {
   const [route, schema, auth, hosting] = await Promise.all([
     readFile(new URL("../app/api/daymark/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/chatgpt-auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/supabase.ts", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
   assert.equal(JSON.parse(hosting).d1, "DB");
-  assert.match(auth, /oai-authenticated-user-id/);
-  assert.match(route, /getChatGPTUser/);
+  assert.match(auth, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(auth, /authorization/);
+  assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
   assert.match(route, /eq\(checkins\.userId, user\.userId\)/);
   assert.match(route, /eq\(priorities\.userId, user\.userId\)/);
   assert.match(schema, /idx_checkins_user_date_type/);

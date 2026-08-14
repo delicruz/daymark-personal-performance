@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { daymarkFetch, getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
@@ -26,10 +27,49 @@ const demoData: DaymarkData = {
 };
 
 async function daymarkAction(payload: Record<string, unknown>) {
-  const response = await fetch("/api/daymark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  const response = await daymarkFetch("/api/daymark", { method: "POST", body: JSON.stringify(payload) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error ?? "Your changes could not be saved.");
   return result as DaymarkData;
+}
+
+function AuthDialog({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState<"email" | "google" | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const sendEmailLink = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy("email");
+    setStatus("");
+    const { error } = await getSupabaseBrowserClient().auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setBusy(null);
+    setStatus(error ? error.message : "Check your inbox — your secure sign-in link is on its way.");
+  };
+
+  const signInWithGoogle = async () => {
+    setBusy("google");
+    setStatus("");
+    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setBusy(null);
+      setStatus(error.message);
+    }
+  };
+
+  return <div className="auth-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button className="auth-close" onClick={onClose} aria-label="Close sign in">×</button><Logo dark /><span className="auth-kicker">YOUR PRIVATE WORKSPACE</span><h2 id="auth-title">Welcome to Daymark.</h2><p>Sign in without another password. We’ll send a secure link to your email.</p><button className="google-auth" onClick={() => void signInWithGoogle()} disabled={busy !== null}><span aria-hidden="true">G</span>{busy === "google" ? "Opening Google…" : "Continue with Google"}</button><div className="auth-divider"><span>or use email</span></div><form onSubmit={sendEmailLink}><label htmlFor="auth-email">EMAIL ADDRESS</label><input id="auth-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /><button type="submit" disabled={busy !== null}>{busy === "email" ? "Sending link…" : "Email me a sign-in link"}<span className="solid-arrow" aria-hidden="true" /></button></form>{status ? <p className="auth-status" role="status">{status}</p> : null}<small>By continuing, you agree to use Daymark for personal reflection. Your check-ins remain tied to your private account.</small></section></div>;
 }
 
 const week = [
@@ -370,7 +410,7 @@ function CheckInModal({ modal, close, onSaved }: { modal: Exclude<Modal, null>; 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}><form className="checkin-modal" onSubmit={submit}><button type="button" className="modal-close" onClick={close} aria-label="Close">×</button>{onboarding ? <><span className="modal-kicker">SETUP · {step} OF 3</span><div className="modal-progress"><i style={{width:`${step/3*100}%`}} /></div>{step===1&&<><h2>What would you like<br />to improve?</h2><p>Choose your main goal. You can change this later.</p><div className="goal-options"><label><input aria-label="Improve daily focus" type="radio" name="goal" defaultChecked/><span>✦</span><strong>Improve daily focus</strong><small>Find and protect your best deep-work windows</small></label><label><input aria-label="Plan more realistically" type="radio" name="goal"/><span>↗</span><strong>Plan more realistically</strong><small>Match daily workload to your actual capacity</small></label><label><input aria-label="Build healthier routines" type="radio" name="goal"/><span>☼</span><strong>Build healthier routines</strong><small>Understand how habits affect your work</small></label></div></>}{step===2&&<><h2>Set your typical<br />working day.</h2><p>This helps us understand your calendar availability.</p><div className="field-row"><label>START TIME<input type="time" defaultValue="09:00" /></label><label>END TIME<input type="time" defaultValue="17:00" /></label></div><label className="full-field">WORKING DAYS<select defaultValue="weekdays"><option value="weekdays">Monday to Friday</option><option>Every day</option></select></label></>}{step===3&&<><h2>You’re in control<br />of every signal.</h2><p>Your check-ins, outcomes and priorities are now saved to your private account.</p><div className="consent-list"><label><input aria-label="Daily check-ins" type="checkbox" defaultChecked/><span><strong>Daily check-ins</strong><small>Sleep, energy, stress, goals and outcomes</small></span></label><label><input aria-label="Calendar summaries" type="checkbox"/><span><strong>Calendar summaries</strong><small>Meeting count, duration and free blocks only</small></span></label><label><input aria-label="Personal model training" type="checkbox" defaultChecked/><span><strong>Personal model training</strong><small>Use my data to improve my own forecasts</small></span></label></div></>}<button className="modal-submit" disabled={saving}>{step<3?"Continue":saving?"Saving…":"Start my baseline"}<span>→</span></button></> : <><span className="modal-kicker">{evening ? "EVENING REVIEW" : "MORNING CHECK-IN"} · UNDER 60 SECONDS</span><h2>{evening ? "How did today go?" : "How are you starting today?"}</h2><p>{evening ? "Your reflection becomes a labelled outcome for future personal forecasts." : "Small signals help Daymark understand your capacity."}</p>{evening ? <><label className="range-field"><span><strong>Productivity</strong><b>{productivity} / 10</b></span><input aria-label="Productivity" type="range" min="1" max="10" value={productivity} onChange={e=>setProductivity(Number(e.target.value))} /></label><label className="range-field"><span><strong>Focused work</strong><b>{focus} min</b></span><input aria-label="Focused work" type="range" min="0" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><label className="full-field">SHORT REFLECTION<textarea value={reflection} onChange={(event) => setReflection(event.target.value)} placeholder="What helped or interrupted you today?" /></label></> : <><label className="range-field"><span><strong>Energy</strong><b>{energy} / 5</b></span><input aria-label="Energy" type="range" min="1" max="5" value={energy} onChange={e=>setEnergy(Number(e.target.value))}/></label><label className="range-field"><span><strong>Stress</strong><b>{stress} / 5</b></span><input aria-label="Stress" type="range" min="1" max="5" value={stress} onChange={e=>setStress(Number(e.target.value))}/></label><label className="range-field"><span><strong>Planned focus time</strong><b>{focus} min</b></span><input aria-label="Planned focus time" type="range" min="30" max="240" step="15" value={focus} onChange={e=>setFocus(Number(e.target.value))}/></label><div className="field-row"><label>SLEEP DURATION<input type="text" value={sleep} onChange={(event) => setSleep(event.target.value)} /></label><label>WORKLOAD<select value={workload} onChange={(event) => setWorkload(event.target.value)}><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label></div></>}<button className="modal-submit" disabled={saving}>{saving ? "Saving…" : `Save ${evening ? "review" : "check-in"}`}<span>→</span></button></>}</form></div>;
 }
 
-function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; initialOnboarding?: boolean }) {
+function Dashboard({ exit, initialOnboarding = false, authenticated = false }: { exit: () => void; initialOnboarding?: boolean; authenticated?: boolean }) {
   const [view, setView] = useState<View>("today");
   const [transitionState, setTransitionState] = useState<"ready" | "leaving" | "entering">("ready");
   const [modal, setModal] = useState<Modal>(initialOnboarding ? "onboarding" : null);
@@ -381,7 +421,7 @@ function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; init
   const titles = useMemo(() => ({ today: "Today", forecast: "Forecast", insights: "Insights", report: "Weekly report", settings: "Settings" }), []);
   useEffect(() => { document.title = `${titles[view]} · Daymark`; }, [view, titles]);
   useEffect(() => () => { if (transitionTimer.current) clearTimeout(transitionTimer.current); }, []);
-  useEffect(() => { let active = true; fetch("/api/daymark").then(async (response) => { const payload = await response.json(); if (!active) return; if (!response.ok) { setSyncMessage(response.status === 401 ? "Demo mode · Sign in to save your personal data" : payload.error ?? "Data sync is unavailable"); return; } setData(payload as DaymarkData); setSyncMessage("Saved privately to your account"); }).catch(() => { if (active) setSyncMessage("Demo mode · Data sync is unavailable"); }); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; daymarkFetch("/api/daymark").then(async (response) => { const payload = await response.json(); if (!active) return; if (!response.ok) { setSyncMessage(response.status === 401 ? "Demo mode · Sign in to save your personal data" : payload.error ?? "Data sync is unavailable"); return; } setData(payload as DaymarkData); setSyncMessage("Saved privately to your account"); }).catch(() => { if (active) setSyncMessage("Demo mode · Data sync is unavailable"); }); return () => { active = false; }; }, [authenticated]);
   useEffect(() => {
     if (initialOnboarding || localStorage.getItem("daymark-guided-tour:v1")) return;
     const timer = window.setTimeout(() => setTourOpen(true), 650);
@@ -413,17 +453,37 @@ function Dashboard({ exit, initialOnboarding = false }: { exit: () => void; init
   const saveCheckin = async (payload: CheckinPayload) => { const beginTour = modal === "onboarding"; const saved = await updateData({ action: "checkin.save", ...payload }); if (!saved) return; setModal(null); if (beginTour) window.setTimeout(() => setTourOpen(true), 300); };
   const addPriority = async (title: string) => { await updateData({ action: "priority.create", title, impact: "MEDIUM IMPACT" }); };
   const togglePriority = async (id: number, completed: boolean) => { await updateData({ action: "priority.toggle", id, completed }); };
-  const deleteData = async () => { if (!window.confirm("Permanently delete all of your Daymark check-ins, priorities and settings?")) return; const response = await fetch("/api/daymark", { method: "DELETE" }); if (!response.ok) { const payload = await response.json(); setSyncMessage(payload.error ?? "Your data could not be deleted."); return; } setData({ ...demoData, user: data.user, profile: { ...demoData.profile!, displayName: data.user.displayName, email: data.user.email } }); setSyncMessage("Your Daymark data has been deleted"); };
-  const handleExit = () => { if (!["demo", "local-daymark-user"].includes(data.user.id)) { window.location.assign("/signout-with-chatgpt?return_to=%2F"); return; } exit(); };
+  const deleteData = async () => { if (!window.confirm("Permanently delete all of your Daymark check-ins, priorities and settings?")) return; const response = await daymarkFetch("/api/daymark", { method: "DELETE" }); if (!response.ok) { const payload = await response.json(); setSyncMessage(payload.error ?? "Your data could not be deleted."); return; } setData({ ...demoData, user: data.user, profile: { ...demoData.profile!, displayName: data.user.displayName, email: data.user.email } }); setSyncMessage("Your Daymark data has been deleted"); };
+  const handleExit = async () => { if (authenticated && isSupabaseConfigured) await getSupabaseBrowserClient().auth.signOut(); exit(); };
 
   return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={handleExit} startTour={startTour} data={data} /><div className="app-main"><div className="sync-banner" role="status"><span className={syncMessage.startsWith("Saved") ? "online" : ""} />{syncMessage}</div><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} data={data} onAddPriority={addPriority} onTogglePriority={togglePriority} />}{view === "forecast" && <Forecast setModal={setModal} />}{view === "insights" && <Insights setModal={setModal} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} data={data} onCalendarToggle={async (connected) => { await updateData({ action: "calendar.toggle", connected }); }} onProfileUpdate={async (displayName, goal) => { await updateData({ action: "profile.update", displayName, goal }); }} onDelete={deleteData} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={saveCheckin} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
 }
 
 export default function Home() {
   const [experience, setExperience] = useState<"marketing" | "demo" | "onboarding">("marketing");
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const onboardingAfterSignIn = useRef(false);
   useEffect(() => { document.title = experience === "marketing" ? "Daymark · Personal productivity forecasting" : "Today · Daymark"; }, [experience]);
-  useEffect(() => { fetch("/api/daymark?session=1").then((response) => { if (response.ok) setExperience("demo"); }).catch(() => {}); }, []);
-  const signIn = (onboarding = false) => { if (["localhost", "127.0.0.1"].includes(window.location.hostname)) { setExperience(onboarding ? "onboarding" : "demo"); return; } window.location.assign("/signin-with-chatgpt?return_to=%2F"); };
-  if (experience === "marketing") return <Marketing onStart={() => signIn(true)} onDemo={() => setExperience("demo")} onSignIn={() => signIn(false)} />;
-  return <Dashboard initialOnboarding={experience === "onboarding"} exit={() => setExperience("marketing")} />;
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const supabase = getSupabaseBrowserClient();
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+      setAuthenticated(true);
+      setExperience("demo");
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthenticated(Boolean(session));
+      if (session) {
+        setAuthOpen(false);
+        setExperience(onboardingAfterSignIn.current ? "onboarding" : "demo");
+        onboardingAfterSignIn.current = false;
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+  const signIn = (onboarding = false) => { onboardingAfterSignIn.current = onboarding; setAuthOpen(true); };
+  if (experience === "marketing") return <><Marketing onStart={() => signIn(true)} onDemo={() => setExperience("demo")} onSignIn={() => signIn(false)} />{authOpen ? <AuthDialog onClose={() => setAuthOpen(false)} /> : null}</>;
+  return <Dashboard authenticated={authenticated} initialOnboarding={experience === "onboarding"} exit={() => setExperience("marketing")} />;
 }
