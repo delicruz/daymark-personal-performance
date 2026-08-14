@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { daymarkFetch, getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
@@ -115,7 +116,7 @@ const faqs = [
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <span className={`logo ${dark ? "logo-dark" : ""}`}>
-      <span className="logo-mark" aria-hidden="true"><i /><i /><i /></span>
+      <Image className="logo-mark" src="/daymark-heart.png" width={34} height={34} alt="" aria-hidden="true" />
       <strong>Daymark</strong>
     </span>
   );
