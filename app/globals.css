@@ -558,9 +558,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* First-use guidance */
 .tour-layer { position: fixed; z-index: 200; inset: 0; pointer-events: none; }
-.tour-catcher { position: absolute; inset: 0; pointer-events: auto; }
-.tour-highlight { position: fixed; z-index: 1; border: 2px solid var(--mint); border-radius: var(--radius-md); box-shadow: 0 0 0 9999px rgba(8,24,19,.72), 0 0 0 6px rgba(185,218,153,.16); transition: top .28s cubic-bezier(.22,1,.36,1), left .28s cubic-bezier(.22,1,.36,1), width .28s cubic-bezier(.22,1,.36,1), height .28s cubic-bezier(.22,1,.36,1); pointer-events: none; }
-.tour-card { position: fixed; z-index: 2; max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px; border-radius: var(--radius-md); background: #fff; color: var(--ink); box-shadow: 0 24px 70px rgba(0,0,0,.3); pointer-events: auto; animation: tour-card-enter .25s cubic-bezier(.22,1,.36,1) both; }
+.tour-catcher { position: absolute; inset: 0; pointer-events: auto; animation: tour-backdrop-enter .3s ease both; }
+.tour-highlight { position: fixed; z-index: 1; opacity: 0; border: 2px solid var(--mint); border-radius: var(--radius-md); box-shadow: 0 0 0 9999px rgba(8,24,19,.72), 0 0 0 6px rgba(185,218,153,.16), 0 10px 35px rgba(0,0,0,.2); transition: top .4s cubic-bezier(.16,1,.3,1), left .4s cubic-bezier(.16,1,.3,1), width .4s cubic-bezier(.16,1,.3,1), height .4s cubic-bezier(.16,1,.3,1), opacity .18s ease, border-radius .3s ease, box-shadow .3s ease; will-change: top, left, width, height; pointer-events: none; }
+.tour-highlight.positioned { opacity: 1; }
+.tour-card { position: fixed; z-index: 2; max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px; border-radius: var(--radius-md); background: #fff; color: var(--ink); box-shadow: 0 24px 70px rgba(0,0,0,.3); pointer-events: auto; animation: tour-card-enter .3s cubic-bezier(.16,1,.3,1) both; transition: top .38s cubic-bezier(.16,1,.3,1), left .38s cubic-bezier(.16,1,.3,1), width .3s ease; will-change: top, left; }
+.tour-card-content { animation: tour-content-change .32s cubic-bezier(.16,1,.3,1) both; }
 .tour-topline { display: flex; justify-content: space-between; align-items: center; }
 .tour-topline > span { color: var(--orange); font: 750 8px var(--font-geist-mono),monospace; letter-spacing: .12em; }
 .tour-topline button { display: grid; place-content: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #edf0ea; color: var(--muted); font-size: 17px; cursor: pointer; }
@@ -582,6 +584,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   from { opacity: 0; transform: translateY(8px) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes tour-content-change { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tour-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 
 /* Calm route changes: ease the old view away before the next one settles in. */
 .marketing { animation: experience-enter .38s cubic-bezier(.22, 1, .36, 1) both; }

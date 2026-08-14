@@ -130,6 +130,7 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
   const cardRef = useRef<HTMLElement>(null);
   const [highlight, setHighlight] = useState({ top: 20, left: 20, width: 120, height: 80 });
   const [cardPosition, setCardPosition] = useState({ top: 120, left: 120, width: 340 });
+  const [positioned, setPositioned] = useState(false);
   const current = tourSteps[step];
 
   const finish = useCallback(() => {
@@ -160,26 +161,35 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
     if (cardTop + estimatedHeight > window.innerHeight) cardTop = Math.max(16, rect.top - estimatedHeight - gap);
     cardLeft = Math.max(16, cardLeft);
     setCardPosition({ top: cardTop, left: cardLeft, width });
+    setPositioned(true);
   }, [current.target]);
 
   useEffect(() => {
     const element = document.querySelector<HTMLElement>(`[data-tour="${current.target}"]`);
-    element?.scrollIntoView({ behavior: "smooth", block: "center" });
-    const timer = window.setTimeout(updatePosition, 320);
-    cardRef.current?.focus();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+    const startedAt = performance.now();
+    let animationFrame = 0;
+    const trackTarget = () => {
+      updatePosition();
+      if (performance.now() - startedAt < (reducedMotion ? 40 : 560)) animationFrame = window.requestAnimationFrame(trackTarget);
+    };
+    animationFrame = window.requestAnimationFrame(trackTarget);
+    const focusTimer = window.setTimeout(() => cardRef.current?.focus(), reducedMotion ? 0 : 90);
     const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") finish(); };
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, { passive: true });
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.clearTimeout(timer);
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(focusTimer);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [current.target, finish, updatePosition]);
 
-  return <div className="tour-layer"><div className="tour-catcher" /><div className="tour-highlight" style={highlight} /><section ref={cardRef} tabIndex={-1} className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={cardPosition}><div className="tour-topline"><span>{current.eyebrow}</span><button onClick={finish} aria-label="Close guided tour">×</button></div><h2 id="tour-title">{current.title}</h2><p>{current.body}</p><div className="tour-progress" aria-label={`Step ${step + 1} of ${tourSteps.length}`}>{tourSteps.map((item, index) => <i key={item.target} className={index === step ? "active" : index < step ? "complete" : ""} />)}</div><div className="tour-actions"><button className="tour-skip" onClick={finish}>Skip tour</button><div>{step > 0 && <button className="tour-back" onClick={() => setStep(step - 1)}>Back</button>}<button className="tour-next" onClick={() => step === tourSteps.length - 1 ? finish() : setStep(step + 1)}>{step === tourSteps.length - 1 ? "Finish" : "Next"}<span className="solid-arrow" aria-hidden="true" /></button></div></div></section></div>;
+  return <div className="tour-layer"><div className="tour-catcher" /><div className={`tour-highlight ${positioned ? "positioned" : ""}`} style={highlight} /><section ref={cardRef} tabIndex={-1} className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={cardPosition}><div key={current.target} className="tour-card-content"><div className="tour-topline"><span>{current.eyebrow}</span><button onClick={finish} aria-label="Close guided tour">×</button></div><h2 id="tour-title">{current.title}</h2><p>{current.body}</p><div className="tour-progress" aria-label={`Step ${step + 1} of ${tourSteps.length}`}>{tourSteps.map((item, index) => <i key={item.target} className={index === step ? "active" : index < step ? "complete" : ""} />)}</div><div className="tour-actions"><button className="tour-skip" onClick={finish}>Skip tour</button><div>{step > 0 && <button className="tour-back" onClick={() => setStep(step - 1)}>Back</button>}<button className="tour-next" onClick={() => step === tourSteps.length - 1 ? finish() : setStep(step + 1)}>{step === tourSteps.length - 1 ? "Finish" : "Next"}<span className="solid-arrow" aria-hidden="true" /></button></div></div></div></section></div>;
 }
 
 function FaqSection() {
@@ -440,10 +450,10 @@ function Dashboard({ exit, initialOnboarding = false, authenticated = false }: {
   const [tourOpen, setTourOpen] = useState(false);
   const [data, setData] = useState<DaymarkData>(demoData);
   const [syncMessage, setSyncMessage] = useState("Loading your workspace…");
-  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimer = useRef<number | null>(null);
   const titles = useMemo(() => ({ today: "Today", forecast: "Forecast", insights: "Insights", report: "Weekly report", settings: "Settings" }), []);
   useEffect(() => { document.title = `${titles[view]} · Daymark`; }, [view, titles]);
-  useEffect(() => () => { if (transitionTimer.current) clearTimeout(transitionTimer.current); }, []);
+  useEffect(() => () => { if (transitionTimer.current) window.clearTimeout(transitionTimer.current); }, []);
   useEffect(() => { let active = true; daymarkFetch("/api/daymark").then(async (response) => { const payload = await response.json(); if (!active) return; if (!response.ok) { setSyncMessage(response.status === 401 ? "Demo mode · Sign in to save your personal data" : payload.error ?? "Data sync is unavailable"); return; } setData(payload as DaymarkData); setSyncMessage("Saved privately to your account"); }).catch(() => { if (active) setSyncMessage("Demo mode · Data sync is unavailable"); }); return () => { active = false; }; }, [authenticated]);
   useEffect(() => {
     if (initialOnboarding || localStorage.getItem("daymark-guided-tour:v1")) return;

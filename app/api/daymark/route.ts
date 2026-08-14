@@ -1,8 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
-import { createClient } from "@supabase/supabase-js";
-import { getDb } from "../../../db";
-import { ensureDaymarkSchema } from "../../../db/daymark";
-import { checkins, priorities, users } from "../../../db/schema";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -10,48 +6,103 @@ const today = () => new Date().toISOString().slice(0, 10);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 type AuthenticatedUser = { userId: string; email: string; displayName: string };
+type RequestContext = { user: AuthenticatedUser; supabase: SupabaseClient };
+type DatabaseRecord = Record<string, unknown>;
 
-async function requestUser(request: Request, allowLocalDemo = true): Promise<AuthenticatedUser | null> {
+function environment() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishableKey) throw new Error("Supabase environment variables are not configured.");
+  return { url, publishableKey };
+}
+
+async function requestContext(request: Request): Promise<RequestContext | null> {
   const authorization = request.headers.get("authorization");
   const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!accessToken) return null;
 
-  if (accessToken && supabaseUrl && supabasePublishableKey) {
-    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data, error } = await supabase.auth.getUser(accessToken);
-    if (!error && data.user?.email) {
-      const metadata = data.user.user_metadata as Record<string, unknown>;
-      const displayName = String(metadata.full_name ?? metadata.name ?? data.user.email.split("@")[0]);
-      return { userId: data.user.id, email: data.user.email, displayName };
-    }
-  }
-
-  if (allowLocalDemo && process.env.NODE_ENV === "development") {
-    return { userId: "local-daymark-user", email: "local@daymark.test", displayName: "Local user" };
-  }
-  return null;
-}
-
-async function bootstrapUser(user: AuthenticatedUser) {
-  const db = getDb();
-  await db.insert(users).values({ id: user.userId, email: user.email, displayName: user.displayName }).onConflictDoUpdate({
-    target: users.id,
-    set: { email: user.email, displayName: user.displayName, updatedAt: new Date().toISOString() },
+  const { url, publishableKey } = environment();
+  const supabase = createClient(url, publishableKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
   });
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user?.email) return null;
+
+  const metadata = data.user.user_metadata as Record<string, unknown>;
+  const displayName = String(metadata.full_name ?? metadata.name ?? data.user.email.split("@")[0]);
+  return { user: { userId: data.user.id, email: data.user.email, displayName }, supabase };
 }
 
-async function userData(user: AuthenticatedUser) {
-  const db = getDb();
-  const date = today();
-  const [profile] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
-  const recentCheckins = await db.select().from(checkins).where(eq(checkins.userId, user.userId)).orderBy(desc(checkins.entryDate), desc(checkins.createdAt)).limit(60);
-  const todaysPriorities = await db.select().from(priorities).where(and(eq(priorities.userId, user.userId), eq(priorities.priorityDate, date))).orderBy(asc(priorities.sortOrder), asc(priorities.id));
-  const latestMorning = recentCheckins.find((entry) => entry.entryType === "morning") ?? null;
-  const forecast = latestMorning?.prediction ?? 74;
-  return { user: { id: user.userId, email: user.email, displayName: profile?.displayName ?? user.displayName }, profile, checkins: recentCheckins, latestMorning, priorities: todaysPriorities, forecast, baselineDays: new Set(recentCheckins.filter((entry) => entry.entryType === "morning").map((entry) => entry.entryDate)).size };
+async function bootstrapUser({ user, supabase }: RequestContext) {
+  const { error } = await supabase.from("daymark_users").upsert({
+    user_id: user.userId,
+    email: user.email,
+    display_name: user.displayName,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
+function mapProfile(row: DatabaseRecord | null) {
+  if (!row) return null;
+  return {
+    displayName: String(row.display_name ?? ""),
+    email: String(row.email ?? ""),
+    goal: String(row.goal ?? "Improve daily focus"),
+    calendarConnected: Boolean(row.calendar_connected),
+  };
+}
+
+function mapCheckin(row: DatabaseRecord) {
+  return {
+    id: Number(row.id),
+    entryDate: String(row.entry_date),
+    entryType: row.entry_type === "evening" ? "evening" as const : "morning" as const,
+    energy: row.energy == null ? null : Number(row.energy),
+    stress: row.stress == null ? null : Number(row.stress),
+    sleepMinutes: row.sleep_minutes == null ? null : Number(row.sleep_minutes),
+    workload: row.workload == null ? null : String(row.workload),
+    plannedFocusMinutes: row.planned_focus_minutes == null ? null : Number(row.planned_focus_minutes),
+    productivity: row.productivity == null ? null : Number(row.productivity),
+    focusedMinutes: row.focused_minutes == null ? null : Number(row.focused_minutes),
+    reflection: row.reflection == null ? null : String(row.reflection),
+    prediction: row.prediction == null ? null : Number(row.prediction),
+  };
+}
+
+function mapPriority(row: DatabaseRecord) {
+  return {
+    id: Number(row.id),
+    title: String(row.title),
+    impact: String(row.impact),
+    completed: Boolean(row.completed),
+  };
+}
+
+async function userData({ user, supabase }: RequestContext) {
+  const [profileResult, checkinsResult, prioritiesResult] = await Promise.all([
+    supabase.from("daymark_users").select("*").eq("user_id", user.userId).maybeSingle(),
+    supabase.from("daymark_checkins").select("*").eq("user_id", user.userId).order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(60),
+    supabase.from("daymark_priorities").select("*").eq("user_id", user.userId).eq("priority_date", today()).order("sort_order").order("id"),
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  if (checkinsResult.error) throw checkinsResult.error;
+  if (prioritiesResult.error) throw prioritiesResult.error;
+
+  const profile = mapProfile(profileResult.data as DatabaseRecord | null);
+  const checkins = (checkinsResult.data as DatabaseRecord[]).map(mapCheckin);
+  const priorities = (prioritiesResult.data as DatabaseRecord[]).map(mapPriority);
+  const latestMorning = checkins.find((entry) => entry.entryType === "morning") ?? null;
+  return {
+    user: { id: user.userId, email: user.email, displayName: profile?.displayName ?? user.displayName },
+    profile,
+    checkins,
+    latestMorning,
+    priorities,
+    forecast: latestMorning?.prediction ?? 74,
+    baselineDays: new Set(checkins.filter((entry) => entry.entryType === "morning").map((entry) => entry.entryDate)).size,
+  };
 }
 
 function unauthorized() {
@@ -59,13 +110,11 @@ function unauthorized() {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const user = await requestUser(request, url.searchParams.get("session") !== "1");
-  if (!user) return unauthorized();
   try {
-    await ensureDaymarkSchema();
-    await bootstrapUser(user);
-    return Response.json(await userData(user));
+    const context = await requestContext(request);
+    if (!context) return unauthorized();
+    await bootstrapUser(context);
+    return Response.json(await userData(context));
   } catch (error) {
     console.error("[daymark] failed to load user data", error);
     return Response.json({ error: "Your Daymark data could not be loaded." }, { status: 500 });
@@ -73,12 +122,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requestUser(request);
-  if (!user) return unauthorized();
   try {
-    await ensureDaymarkSchema();
-    await bootstrapUser(user);
-    const db = getDb();
+    const context = await requestContext(request);
+    if (!context) return unauthorized();
+    await bootstrapUser(context);
+    const { user, supabase } = context;
     const payload = await request.json() as Record<string, unknown>;
     const action = String(payload.action ?? "");
 
@@ -88,48 +136,55 @@ export async function POST(request: Request) {
       const stress = clamp(Number(payload.stress ?? 2), 1, 5);
       const focus = clamp(Number(payload.focusMinutes ?? 120), 0, 240);
       const sleep = clamp(Number(payload.sleepMinutes ?? 462), 0, 900);
-      const workload = ["light", "normal", "heavy"].includes(String(payload.workload)) ? String(payload.workload) as "light" | "normal" | "heavy" : "normal";
+      const workload = ["light", "normal", "heavy"].includes(String(payload.workload)) ? String(payload.workload) : "normal";
       const workloadAdjustment = workload === "light" ? 3 : workload === "heavy" ? -5 : 0;
       const sleepAdjustment = clamp(Math.round((sleep - 420) / 30), -6, 6);
       const prediction = clamp(64 + energy * 4 - stress * 2 + Math.round(focus / 60) + sleepAdjustment + workloadAdjustment, 35, 92);
       const values = {
-        userId: user.userId,
-        entryDate: today(),
-        entryType,
+        user_id: user.userId,
+        entry_date: today(),
+        entry_type: entryType,
         energy: entryType === "morning" ? energy : null,
         stress: entryType === "morning" ? stress : null,
-        sleepMinutes: entryType === "morning" ? sleep : null,
+        sleep_minutes: entryType === "morning" ? sleep : null,
         workload: entryType === "morning" ? workload : null,
-        plannedFocusMinutes: entryType === "morning" ? focus : null,
+        planned_focus_minutes: entryType === "morning" ? focus : null,
         productivity: entryType === "evening" ? clamp(Number(payload.productivity ?? 8), 1, 10) : null,
-        focusedMinutes: entryType === "evening" ? focus : null,
+        focused_minutes: entryType === "evening" ? focus : null,
         reflection: entryType === "evening" ? String(payload.reflection ?? "").slice(0, 1200) : null,
         prediction: entryType === "morning" ? prediction : null,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
-      await db.insert(checkins).values(values).onConflictDoUpdate({
-        target: [checkins.userId, checkins.entryDate, checkins.entryType],
-        set: values,
-      });
+      const { error } = await supabase.from("daymark_checkins").upsert(values, { onConflict: "user_id,entry_date,entry_type" });
+      if (error) throw error;
     } else if (action === "priority.create") {
       const title = String(payload.title ?? "").trim().slice(0, 180);
       if (!title) return Response.json({ error: "Priority title is required." }, { status: 400 });
-      await db.insert(priorities).values({ userId: user.userId, priorityDate: today(), title, impact: String(payload.impact ?? "MEDIUM IMPACT").slice(0, 40) });
+      const { error } = await supabase.from("daymark_priorities").insert({
+        user_id: user.userId,
+        priority_date: today(),
+        title,
+        impact: String(payload.impact ?? "MEDIUM IMPACT").slice(0, 40),
+      });
+      if (error) throw error;
     } else if (action === "priority.toggle") {
       const id = Number(payload.id);
       if (!Number.isInteger(id)) return Response.json({ error: "Valid priority id is required." }, { status: 400 });
-      await db.update(priorities).set({ completed: Boolean(payload.completed) }).where(and(eq(priorities.id, id), eq(priorities.userId, user.userId)));
+      const { error } = await supabase.from("daymark_priorities").update({ completed: Boolean(payload.completed) }).eq("id", id).eq("user_id", user.userId);
+      if (error) throw error;
     } else if (action === "profile.update") {
       const displayName = String(payload.displayName ?? "").trim().slice(0, 80) || user.displayName;
       const goal = String(payload.goal ?? "Improve daily focus").trim().slice(0, 120);
-      await db.update(users).set({ displayName, goal, updatedAt: new Date().toISOString() }).where(eq(users.id, user.userId));
+      const { error } = await supabase.from("daymark_users").update({ display_name: displayName, goal, updated_at: new Date().toISOString() }).eq("user_id", user.userId);
+      if (error) throw error;
     } else if (action === "calendar.toggle") {
-      await db.update(users).set({ calendarConnected: Boolean(payload.connected), updatedAt: new Date().toISOString() }).where(eq(users.id, user.userId));
+      const { error } = await supabase.from("daymark_users").update({ calendar_connected: Boolean(payload.connected), updated_at: new Date().toISOString() }).eq("user_id", user.userId);
+      if (error) throw error;
     } else {
       return Response.json({ error: "Unsupported action." }, { status: 400 });
     }
 
-    return Response.json(await userData(user));
+    return Response.json(await userData(context));
   } catch (error) {
     console.error("[daymark] failed to save user data", error);
     return Response.json({ error: "Your changes could not be saved." }, { status: 500 });
@@ -137,14 +192,11 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const user = await requestUser(request);
-  if (!user) return unauthorized();
   try {
-    await ensureDaymarkSchema();
-    const db = getDb();
-    await db.delete(checkins).where(eq(checkins.userId, user.userId));
-    await db.delete(priorities).where(eq(priorities.userId, user.userId));
-    await db.delete(users).where(eq(users.id, user.userId));
+    const context = await requestContext(request);
+    if (!context) return unauthorized();
+    const { error } = await context.supabase.from("daymark_users").delete().eq("user_id", context.user.userId);
+    if (error) throw error;
     return Response.json({ deleted: true });
   } catch (error) {
     console.error("[daymark] failed to delete user data", error);

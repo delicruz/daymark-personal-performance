@@ -26,18 +26,18 @@ test("server-renders the Daymark landing experience", async () => {
 });
 
 test("keeps persistent records scoped to an authenticated user", async () => {
-  const [route, schema, auth, hosting] = await Promise.all([
+  const [route, auth, migration] = await Promise.all([
     readFile(new URL("../app/api/daymark/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/supabase.ts", import.meta.url), "utf8"),
-    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260814015817_daymark_portable_storage.sql", import.meta.url), "utf8"),
   ]);
-  assert.equal(JSON.parse(hosting).d1, "DB");
   assert.match(auth, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(auth, /authorization/);
   assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
-  assert.match(route, /eq\(checkins\.userId, user\.userId\)/);
-  assert.match(route, /eq\(priorities\.userId, user\.userId\)/);
-  assert.match(schema, /idx_checkins_user_date_type/);
-  assert.match(schema, /idx_priorities_user_date/);
+  assert.match(route, /global: \{ headers: \{ Authorization/);
+  assert.match(route, /from\("daymark_checkins"\).*\.eq\("user_id", user\.userId\)/s);
+  assert.match(route, /from\("daymark_priorities"\).*\.eq\("user_id", user\.userId\)/s);
+  assert.match(migration, /enable row level security/g);
+  assert.match(migration, /\(select auth\.uid\(\)\) = user_id/g);
+  assert.match(migration, /revoke all on table public\.daymark_users from anon/);
 });
