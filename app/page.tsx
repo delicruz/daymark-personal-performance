@@ -105,6 +105,17 @@ const factors = [
   { label: "Workload", value: "−4", positive: false, detail: "Slightly above your normal" },
 ];
 
+const faqs = [
+  { category: "Forecasts", question: "What does Daymark’s productivity score mean?", answer: "It is a personal capacity forecast from 0 to 100, built to help you plan your day. It is not a grade, a promise, or a comparison with other people. Daymark always pairs the score with a range and the signals that influenced it." },
+  { category: "Forecasts", question: "How long does it take to build an accurate baseline?", answer: "Useful guidance starts with your first check-in. Confidence improves as you record more mornings and evening outcomes, with the first meaningful personal baseline developing over roughly 30 recorded days." },
+  { category: "Data", question: "What information do I need to share?", answer: "A morning check-in can include sleep duration, energy, stress, planned focus time and workload. Evening reviews add your productivity outcome and an optional reflection. Every input is visible and chosen by you." },
+  { category: "Privacy", question: "Can my employer see or use my forecasts?", answer: "No. Daymark is designed as an individual reflection tool, not an employee-ranking system. Your workspace is tied to your account, and forecasts are not presented as medical or employment assessments." },
+  { category: "Calendar", question: "What does the calendar connection read?", answer: "Daymark only needs event timing and availability to estimate meeting load and open focus windows. It does not need meeting titles, descriptions, attendees, messages or document contents." },
+  { category: "Data", question: "Can I export or permanently delete my information?", answer: "Yes. Data & Settings lets you download your profile, check-ins, priorities and outcomes as JSON. You can also permanently delete the Daymark records attached to your account." },
+  { category: "Accounts", question: "How do I sign in?", answer: "Use a secure email sign-in link or continue with Google when that provider is enabled. Daymark uses Supabase Auth to verify your session before any private information is loaded or saved." },
+  { category: "Forecasts", question: "Does Daymark use artificial intelligence?", answer: "Daymark begins with transparent rules and clearly weighted signals. Personalised modelling should only begin when you have enough labelled outcomes, and every forecast should remain explainable rather than becoming a black box." },
+] as const;
+
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <span className={`logo ${dark ? "logo-dark" : ""}`}>
@@ -171,6 +182,15 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
   return <div className="tour-layer"><div className="tour-catcher" /><div className="tour-highlight" style={highlight} /><section ref={cardRef} tabIndex={-1} className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" style={cardPosition}><div className="tour-topline"><span>{current.eyebrow}</span><button onClick={finish} aria-label="Close guided tour">×</button></div><h2 id="tour-title">{current.title}</h2><p>{current.body}</p><div className="tour-progress" aria-label={`Step ${step + 1} of ${tourSteps.length}`}>{tourSteps.map((item, index) => <i key={item.target} className={index === step ? "active" : index < step ? "complete" : ""} />)}</div><div className="tour-actions"><button className="tour-skip" onClick={finish}>Skip tour</button><div>{step > 0 && <button className="tour-back" onClick={() => setStep(step - 1)}>Back</button>}<button className="tour-next" onClick={() => step === tourSteps.length - 1 ? finish() : setStep(step + 1)}>{step === tourSteps.length - 1 ? "Finish" : "Next"}<span className="solid-arrow" aria-hidden="true" /></button></div></div></section></div>;
 }
 
+function FaqSection() {
+  const [query, setQuery] = useState("");
+  const [openQuestion, setOpenQuestion] = useState<string>(faqs[0].question);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleFaqs = normalizedQuery ? faqs.filter((faq) => `${faq.category} ${faq.question} ${faq.answer}`.toLowerCase().includes(normalizedQuery)) : faqs;
+
+  return <section className="faq-section" id="faq"><div className="faq-heading"><div><span className="section-number">04 / COMMON QUESTIONS</span><h2>Clear answers,<br /><em>before you begin.</em></h2></div><label className="faq-search"><span aria-hidden="true" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search questions" aria-label="Search frequently asked questions" />{query ? <button onClick={() => setQuery("")} aria-label="Clear FAQ search">×</button> : null}</label></div><div className="faq-layout"><aside><strong>{visibleFaqs.length}</strong><span>{visibleFaqs.length === 1 ? "ANSWER" : "ANSWERS"}</span><p>Everything important about forecasts, privacy and your data—without the small print.</p></aside><div className="faq-list">{visibleFaqs.length ? visibleFaqs.map((faq, index) => { const open = openQuestion === faq.question; const answerId = `faq-answer-${index}`; return <article className={open ? "open" : ""} key={faq.question}><button aria-expanded={open} aria-controls={answerId} onClick={() => setOpenQuestion(open ? "" : faq.question)}><span><small>{faq.category}</small>{faq.question}</span><i aria-hidden="true" /></button><div className="faq-answer" id={answerId} hidden={!open}><p>{faq.answer}</p></div></article>; }) : <div className="faq-empty"><strong>No matching questions.</strong><p>Try searching for “privacy”, “score”, “calendar” or “data”.</p><button onClick={() => setQuery("")}>Show every answer</button></div>}</div></div></section>;
+}
+
 function Marketing({ onStart, onDemo, onSignIn }: { onStart: () => void; onDemo: () => void; onSignIn: () => void }) {
   return (
     <main className="marketing">
@@ -180,6 +200,7 @@ function Marketing({ onStart, onDemo, onSignIn }: { onStart: () => void; onDemo:
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#science">Our approach</a>
+          <a href="#faq">FAQ</a>
         </nav>
         <div className="nav-actions">
           <button className="link-button" onClick={onSignIn}>Sign in</button>
@@ -276,13 +297,15 @@ function Marketing({ onStart, onDemo, onSignIn }: { onStart: () => void; onDemo:
         </div>
       </section>
 
+      <FaqSection />
+
       <section className="final-cta">
         <p>MAKE TOMORROW MORE INTENTIONAL</p>
         <h2>Start noticing what<br /><em>moves your day.</em></h2>
         <button className="primary-cta light-cta" onClick={onStart}>Build my baseline <span className="solid-arrow" aria-hidden="true" /></button>
       </section>
 
-      <footer className="marketing-footer"><Logo /><span>© 2026 Daymark</span><div><a href="#privacy">Privacy</a><a href="#how">How it works</a></div></footer>
+      <footer className="marketing-footer"><Logo /><span>© 2026 Daymark</span><div><a href="#privacy">Privacy</a><a href="#how">How it works</a><a href="#faq">FAQ</a></div></footer>
     </main>
   );
 }
