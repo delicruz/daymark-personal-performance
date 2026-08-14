@@ -444,6 +444,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .weight-row div { height: 4px; background: #e4e7e0; }
 .weight-row i { display: block; height: 100%; background: var(--ink); }
 .weight-row strong { text-align: right; }
+.weight-row:not(:has(div)) { grid-template-columns: 180px minmax(0,1fr); }
+.weight-row:not(:has(div)) strong { max-width: 460px; justify-self: end; overflow-wrap: anywhere; }
 .control-row { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center; padding: 15px 0; border-top: 1px solid var(--line); }
 .control-row > span { display: grid; place-content: center; width: 32px; height: 32px; background: var(--sage); }
 .control-row > div { display: grid; gap: 4px; }
@@ -501,6 +503,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .range-field { display: block; margin: 20px 0; }
 .range-field > span { display: flex; justify-content: space-between; font-size: 10px; }
 .range-field input { width: 100%; margin-top: 11px; accent-color: var(--ink); }
+.range-field > small { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; }
 .modal-submit { width: 100%; margin-top: 24px; padding: 14px 17px; display: flex; justify-content: space-between; border: 0; border-radius: var(--radius-sm); background: var(--ink); color: white; font-size: 10px; font-weight: 750; cursor: pointer; }
 
 /* One typographic system: Geist Sans for reading, Geist Mono for compact data. */
@@ -742,6 +745,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .priority-form { grid-template-columns: 1fr auto; }
   .priority-form button:last-child { grid-column: 1 / -1; }
   .weight-row { grid-template-columns: 130px 1fr 30px; }
+  .weight-row:not(:has(div)) { grid-template-columns: 110px minmax(0,1fr); }
   .integration-row { align-items: flex-start; flex-wrap: wrap; }
   .integration-row button { margin-left: 49px; }
   .field-row { grid-template-columns: 1fr; }

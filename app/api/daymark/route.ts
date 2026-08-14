@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { buildPersonalForecast } from "../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
 
@@ -94,13 +95,15 @@ async function userData({ user, supabase }: RequestContext) {
   const checkins = (checkinsResult.data as DatabaseRecord[]).map(mapCheckin);
   const priorities = (prioritiesResult.data as DatabaseRecord[]).map(mapPriority);
   const latestMorning = checkins.find((entry) => entry.entryType === "morning") ?? null;
+  const prediction = buildPersonalForecast(checkins, latestMorning);
   return {
     user: { id: user.userId, email: user.email, displayName: profile?.displayName ?? user.displayName },
     profile,
     checkins,
     latestMorning,
     priorities,
-    forecast: latestMorning?.prediction ?? 74,
+    forecast: prediction.forecast,
+    forecastModel: prediction.model,
     baselineDays: new Set(checkins.filter((entry) => entry.entryType === "morning").map((entry) => entry.entryDate)).size,
   };
 }
@@ -137,9 +140,6 @@ export async function POST(request: Request) {
       const focus = clamp(Number(payload.focusMinutes ?? 120), 0, 240);
       const sleep = clamp(Number(payload.sleepMinutes ?? 462), 0, 900);
       const workload = ["light", "normal", "heavy"].includes(String(payload.workload)) ? String(payload.workload) : "normal";
-      const workloadAdjustment = workload === "light" ? 3 : workload === "heavy" ? -5 : 0;
-      const sleepAdjustment = clamp(Math.round((sleep - 420) / 30), -6, 6);
-      const prediction = clamp(64 + energy * 4 - stress * 2 + Math.round(focus / 60) + sleepAdjustment + workloadAdjustment, 35, 92);
       const values = {
         user_id: user.userId,
         entry_date: today(),
@@ -149,10 +149,10 @@ export async function POST(request: Request) {
         sleep_minutes: entryType === "morning" ? sleep : null,
         workload: entryType === "morning" ? workload : null,
         planned_focus_minutes: entryType === "morning" ? focus : null,
-        productivity: entryType === "evening" ? clamp(Number(payload.productivity ?? 8), 1, 10) : null,
+        productivity: entryType === "evening" ? clamp(Number(payload.productivity ?? 8), 0, 10) : null,
         focused_minutes: entryType === "evening" ? focus : null,
         reflection: entryType === "evening" ? String(payload.reflection ?? "").slice(0, 1200) : null,
-        prediction: entryType === "morning" ? prediction : null,
+        prediction: null,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase.from("daymark_checkins").upsert(values, { onConflict: "user_id,entry_date,entry_type" });

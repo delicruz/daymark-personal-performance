@@ -26,10 +26,11 @@ test("server-renders the Daymark landing experience", async () => {
 });
 
 test("keeps persistent records scoped to an authenticated user", async () => {
-  const [route, auth, migration] = await Promise.all([
+  const [route, auth, migration, model] = await Promise.all([
     readFile(new URL("../app/api/daymark/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/supabase.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260814015817_daymark_portable_storage.sql", import.meta.url), "utf8"),
+    readFile(new URL("../lib/prediction.ts", import.meta.url), "utf8"),
   ]);
   assert.match(auth, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(auth, /authorization/);
@@ -40,4 +41,7 @@ test("keeps persistent records scoped to an authenticated user", async () => {
   assert.match(migration, /enable row level security/g);
   assert.match(migration, /\(select auth\.uid\(\)\) = user_id/g);
   assert.match(migration, /revoke all on table public\.daymark_users from anon/);
+  assert.match(model, /Personalized ridge regression/);
+  assert.match(model, /for \(let index = MIN_PERSONALIZED_DAYS; index < samples\.length/);
+  assert.doesNotMatch(route, /64 \+ energy \* 4/);
 });

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /* Vercel expects Next.js' standard .next output directory. */
 };
 
 export default nextConfig;
