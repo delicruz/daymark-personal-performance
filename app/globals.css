@@ -35,7 +35,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .logo { display: inline-flex; align-items: center; gap: 11px; color: white; font-size: 21px; letter-spacing: -.04em; }
 .logo-dark { color: var(--ink); }
-.logo-mark { display: block; width: 34px; height: 34px; flex: 0 0 auto; object-fit: contain; padding: 4px; border-radius: 50%; background: rgba(250,249,245,.96); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.logo-mark { display: block; width: 34px; height: 34px; flex: 0 0 auto; object-fit: contain; }
 
 /* Marketing site */
 .marketing { position: relative; overflow: hidden; background: var(--cream); }
@@ -68,7 +68,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-window { overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 22px; background: #f8f8f4; color: var(--ink); box-shadow: 0 38px 90px rgba(0,0,0,.36); transform: perspective(1200px) rotateY(-1deg); }
 .window-top { height: 54px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .window-top .logo { font-size: 14px; gap: 7px; }
-.window-top .logo-mark { width: 24px; height: 24px; padding: 3px; margin-right: -1px; }
+.window-top .logo-mark { width: 24px; height: 24px; margin-right: -1px; }
 .window-user { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 9px; }
 .window-user b { display: grid; place-content: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: var(--ink); font-size: 9px; }
 .mini-dashboard { min-height: 505px; display: grid; grid-template-columns: 56px 1fr; }
