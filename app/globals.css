@@ -35,11 +35,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .logo { display: inline-flex; align-items: center; gap: 11px; color: white; font-size: 21px; letter-spacing: -.04em; }
 .logo-dark { color: var(--ink); }
-.logo-mark { position: relative; display: inline-flex; width: 28px; height: 25px; align-items: end; gap: 3px; transform: skew(-12deg); }
-.logo-mark i { width: 7px; background: currentColor; border-radius: 5px 5px 1px 1px; }
-.logo-mark i:nth-child(1) { height: 12px; opacity: .7; }
-.logo-mark i:nth-child(2) { height: 21px; }
-.logo-mark i:nth-child(3) { height: 16px; opacity: .85; }
+.logo-mark { position: relative; display: inline-block; width: 29px; height: 27px; flex: 0 0 auto; transform: rotate(-3deg); }
+.logo-mark::before { content: ""; position: absolute; left: 13px; top: 8px; width: 3px; height: 17px; border-radius: 999px; background: currentColor; transform: rotate(4deg); transform-origin: bottom; }
+.logo-mark i { position: absolute; display: block; background: currentColor; }
+.logo-mark i:nth-child(1) { left: 3px; top: 6px; width: 12px; height: 8px; border-radius: 11px 3px 11px 3px; transform: rotate(15deg); opacity: .82; }
+.logo-mark i:nth-child(2) { right: 1px; top: 2px; width: 13px; height: 9px; border-radius: 3px 12px 3px 12px; transform: rotate(-12deg); }
+.logo-mark i:nth-child(3) { left: 6px; bottom: 0; width: 19px; height: 3px; border-radius: 50%; opacity: .42; }
 
 /* Marketing site */
 .marketing { position: relative; overflow: hidden; background: var(--cream); }
@@ -72,7 +73,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-window { overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 22px; background: #f8f8f4; color: var(--ink); box-shadow: 0 38px 90px rgba(0,0,0,.36); transform: perspective(1200px) rotateY(-1deg); }
 .window-top { height: 54px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .window-top .logo { font-size: 14px; gap: 7px; }
-.window-top .logo-mark { transform: scale(.65) skew(-12deg); margin-right: -4px; }
+.window-top .logo-mark { transform: scale(.65) rotate(-3deg); margin-right: -4px; }
 .window-user { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 9px; }
 .window-user b { display: grid; place-content: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: var(--ink); font-size: 9px; }
 .mini-dashboard { min-height: 505px; display: grid; grid-template-columns: 56px 1fr; }
