@@ -229,8 +229,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-header p { margin: 0 0 8px; color: var(--muted); font: 700 8px var(--font-geist-mono), monospace; letter-spacing: .12em; }
 .app-header h1 { margin: 0; font-size: 29px; letter-spacing: -.045em; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
-.icon-button { position: relative; width: 38px; height: 38px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
-.icon-button i { position: absolute; top: 8px; right: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--orange); }
 .outline-button, .dark-button { min-height: 38px; padding: 0 15px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); font-size: 10px; font-weight: 750; cursor: pointer; }
 .dark-button { border-color: var(--ink); background: var(--ink); color: white; }
 .dark-button span { margin-left: 18px; }
