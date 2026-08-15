@@ -52,24 +52,32 @@ function AuthDialog({ onClose }: { onClose: () => void }) {
     event.preventDefault();
     setBusy("email");
     setStatus("");
-    const { error } = await getSupabaseBrowserClient().auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setBusy(null);
-    setStatus(error ? error.message : "Check your inbox — your secure sign-in link is on its way.");
+    try {
+      const { error } = await getSupabaseBrowserClient().auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      setStatus(error ? error.message : "Check your inbox — your secure sign-in link is on its way.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Sign-in is temporarily unavailable.");
+    } finally {
+      setBusy(null);
+    }
   };
 
   const signInWithGoogle = async () => {
     setBusy("google");
     setStatus("");
-    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) {
+    try {
+      const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) setStatus(error.message);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Google sign-in is temporarily unavailable.");
+    } finally {
       setBusy(null);
-      setStatus(error.message);
     }
   };
 
