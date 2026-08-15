@@ -35,7 +35,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .logo { display: inline-flex; align-items: center; gap: 11px; color: white; font-size: 21px; letter-spacing: -.04em; }
 .logo-dark { color: var(--ink); }
-.logo-mark { display: block; width: 34px; height: 34px; flex: 0 0 auto; object-fit: contain; }
+.logo-mark { display: block; width: 34px; height: 34px; flex: 0 0 auto; object-fit: contain; filter: brightness(0) invert(1); }
+.logo-dark .logo-mark { filter: none; }
 
 /* Marketing site */
 .marketing { position: relative; overflow: hidden; background: var(--cream); }
