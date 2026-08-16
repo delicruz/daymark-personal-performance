@@ -21,10 +21,9 @@ This starter does not use `wrangler.jsonc`.
 ## Included Shape
 
 - edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
+- `vite.config.ts` provides the local vinext and Cloudflare build configuration
 - `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
+- `examples/d1/` contains an optional D1 example that requires separate runtime configuration
 - `drizzle.config.ts` supports local migration generation when needed
 
 ## Supabase Auth
