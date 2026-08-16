@@ -5,10 +5,25 @@ export const dynamic = "force-dynamic";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const MAX_REQUEST_BYTES = 16_384;
+
+const boundedNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? clamp(parsed, min, max) : fallback;
+};
 
 type AuthenticatedUser = { userId: string; email: string; displayName: string };
 type RequestContext = { user: AuthenticatedUser; supabase: SupabaseClient };
 type DatabaseRecord = Record<string, unknown>;
+
+function jsonResponse(body: unknown, status = 200, headers?: HeadersInit) {
+  const responseHeaders = new Headers(headers);
+  responseHeaders.set("Cache-Control", "private, no-store, max-age=0");
+  responseHeaders.set("Pragma", "no-cache");
+  responseHeaders.set("Vary", "Authorization");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
+  return Response.json(body, { status, headers: responseHeaders });
+}
 
 function environment() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,6 +58,47 @@ async function bootstrapUser({ user, supabase }: RequestContext) {
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
   if (error) throw error;
+}
+
+async function enforceRateLimit({ supabase }: RequestContext) {
+  const { data, error } = await supabase.rpc("daymark_consume_rate_limit");
+  if (error) {
+    console.error("[daymark] rate limiter unavailable", error);
+    return jsonResponse({ error: "Daymark is temporarily unavailable. Please try again shortly." }, 503, { "Retry-After": "10" });
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean; remaining?: number; retry_after_seconds?: number } | null;
+  if (!row?.allowed) {
+    const retryAfter = Math.max(1, Number(row?.retry_after_seconds ?? 60));
+    return jsonResponse({ error: "Too many requests. Please wait a moment and try again." }, 429, {
+      "Retry-After": String(retryAfter),
+      "X-RateLimit-Limit": "60",
+      "X-RateLimit-Remaining": "0",
+    });
+  }
+  return null;
+}
+
+async function readPayload(request: Request) {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+    return { response: jsonResponse({ error: "Request body is too large." }, 413) };
+  }
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
+    return { response: jsonResponse({ error: "Content-Type must be application/json." }, 415) };
+  }
+
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) {
+    return { response: jsonResponse({ error: "Request body is too large." }, 413) };
+  }
+  try {
+    const data = JSON.parse(raw) as unknown;
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid JSON object");
+    return { data: data as Record<string, unknown> };
+  } catch {
+    return { response: jsonResponse({ error: "Request body must be a valid JSON object." }, 400) };
+  }
 }
 
 function mapProfile(row: DatabaseRecord | null) {
@@ -109,18 +165,20 @@ async function userData({ user, supabase }: RequestContext) {
 }
 
 function unauthorized() {
-  return Response.json({ error: "Sign in with Daymark to save personal data." }, { status: 401 });
+  return jsonResponse({ error: "Sign in with Daymark to save personal data." }, 401);
 }
 
 export async function GET(request: Request) {
   try {
     const context = await requestContext(request);
     if (!context) return unauthorized();
+    const rateLimited = await enforceRateLimit(context);
+    if (rateLimited) return rateLimited;
     await bootstrapUser(context);
-    return Response.json(await userData(context));
+    return jsonResponse(await userData(context));
   } catch (error) {
     console.error("[daymark] failed to load user data", error);
-    return Response.json({ error: "Your Daymark data could not be loaded." }, { status: 500 });
+    return jsonResponse({ error: "Your Daymark data could not be loaded." }, 500);
   }
 }
 
@@ -128,17 +186,21 @@ export async function POST(request: Request) {
   try {
     const context = await requestContext(request);
     if (!context) return unauthorized();
+    const rateLimited = await enforceRateLimit(context);
+    if (rateLimited) return rateLimited;
+    const parsedPayload = await readPayload(request);
+    if (parsedPayload.response) return parsedPayload.response;
     await bootstrapUser(context);
     const { user, supabase } = context;
-    const payload = await request.json() as Record<string, unknown>;
+    const payload = parsedPayload.data!;
     const action = String(payload.action ?? "");
 
     if (action === "checkin.save") {
       const entryType = payload.entryType === "evening" ? "evening" : "morning";
-      const energy = clamp(Number(payload.energy ?? 4), 1, 5);
-      const stress = clamp(Number(payload.stress ?? 2), 1, 5);
-      const focus = clamp(Number(payload.focusMinutes ?? 120), 0, 240);
-      const sleep = clamp(Number(payload.sleepMinutes ?? 462), 0, 900);
+      const energy = boundedNumber(payload.energy, 4, 1, 5);
+      const stress = boundedNumber(payload.stress, 2, 1, 5);
+      const focus = boundedNumber(payload.focusMinutes, 120, 0, 240);
+      const sleep = boundedNumber(payload.sleepMinutes, 462, 0, 900);
       const workload = ["light", "normal", "heavy"].includes(String(payload.workload)) ? String(payload.workload) : "normal";
       const values = {
         user_id: user.userId,
@@ -149,7 +211,7 @@ export async function POST(request: Request) {
         sleep_minutes: entryType === "morning" ? sleep : null,
         workload: entryType === "morning" ? workload : null,
         planned_focus_minutes: entryType === "morning" ? focus : null,
-        productivity: entryType === "evening" ? clamp(Number(payload.productivity ?? 8), 0, 10) : null,
+        productivity: entryType === "evening" ? boundedNumber(payload.productivity, 8, 0, 10) : null,
         focused_minutes: entryType === "evening" ? focus : null,
         reflection: entryType === "evening" ? String(payload.reflection ?? "").slice(0, 1200) : null,
         prediction: null,
@@ -159,7 +221,7 @@ export async function POST(request: Request) {
       if (error) throw error;
     } else if (action === "priority.create") {
       const title = String(payload.title ?? "").trim().slice(0, 180);
-      if (!title) return Response.json({ error: "Priority title is required." }, { status: 400 });
+      if (!title) return jsonResponse({ error: "Priority title is required." }, 400);
       const { error } = await supabase.from("daymark_priorities").insert({
         user_id: user.userId,
         priority_date: today(),
@@ -169,7 +231,7 @@ export async function POST(request: Request) {
       if (error) throw error;
     } else if (action === "priority.toggle") {
       const id = Number(payload.id);
-      if (!Number.isInteger(id)) return Response.json({ error: "Valid priority id is required." }, { status: 400 });
+      if (!Number.isSafeInteger(id) || id <= 0) return jsonResponse({ error: "Valid priority id is required." }, 400);
       const { error } = await supabase.from("daymark_priorities").update({ completed: Boolean(payload.completed) }).eq("id", id).eq("user_id", user.userId);
       if (error) throw error;
     } else if (action === "profile.update") {
@@ -181,13 +243,13 @@ export async function POST(request: Request) {
       const { error } = await supabase.from("daymark_users").update({ calendar_connected: Boolean(payload.connected), updated_at: new Date().toISOString() }).eq("user_id", user.userId);
       if (error) throw error;
     } else {
-      return Response.json({ error: "Unsupported action." }, { status: 400 });
+      return jsonResponse({ error: "Unsupported action." }, 400);
     }
 
-    return Response.json(await userData(context));
+    return jsonResponse(await userData(context));
   } catch (error) {
     console.error("[daymark] failed to save user data", error);
-    return Response.json({ error: "Your changes could not be saved." }, { status: 500 });
+    return jsonResponse({ error: "Your changes could not be saved." }, 500);
   }
 }
 
@@ -195,11 +257,13 @@ export async function DELETE(request: Request) {
   try {
     const context = await requestContext(request);
     if (!context) return unauthorized();
+    const rateLimited = await enforceRateLimit(context);
+    if (rateLimited) return rateLimited;
     const { error } = await context.supabase.from("daymark_users").delete().eq("user_id", context.user.userId);
     if (error) throw error;
-    return Response.json({ deleted: true });
+    return jsonResponse({ deleted: true });
   } catch (error) {
     console.error("[daymark] failed to delete user data", error);
-    return Response.json({ error: "Your data could not be deleted." }, { status: 500 });
+    return jsonResponse({ error: "Your data could not be deleted." }, 500);
   }
 }

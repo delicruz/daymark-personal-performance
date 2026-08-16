@@ -33,7 +33,9 @@ Daymark uses Supabase Auth for passwordless email links and Google sign-in. Copy
 `.env.example` to `.env.local` and provide the project URL and publishable key.
 The browser stores the Supabase session and sends its access token with private
 Daymark API requests. The API verifies every token with Supabase before querying
-D1, and all records remain scoped to the verified Supabase user ID.
+Postgres, and RLS keeps every record scoped to the verified Supabase user ID.
+The API also applies a durable per-user request limit, rejects oversized payloads,
+and returns private data with no-store cache headers.
 
 In the Supabase dashboard, add the local and production origins to
 Authentication → URL Configuration. Enable Google under Authentication →
