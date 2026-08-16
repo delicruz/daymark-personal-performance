@@ -421,9 +421,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .report-days small { color: var(--muted); font-size: 7px; }
 .download-report { display: block; margin: 20px 0 0 auto; padding: 11px 15px; border: 1px solid var(--line); background: var(--paper); font-size: 9px; font-weight: 700; cursor: pointer; }
 .settings-layout { display: grid; grid-template-columns: 190px 1fr; gap: 30px; margin-top: 28px; }
-.settings-layout > nav { display: flex; flex-direction: column; gap: 4px; }
-.settings-layout > nav button { padding: 11px 13px; border: 0; background: transparent; text-align: left; color: var(--muted); font-size: 10px; cursor: pointer; }
-.settings-layout > nav button.active { background: var(--ink); color: white; }
+.settings-tabs { display: flex; flex-direction: column; gap: 4px; }
+.settings-tabs button { padding: 11px 13px; border: 0; background: transparent; text-align: left; color: var(--muted); font-size: 10px; cursor: pointer; }
+.settings-tabs button.active { background: var(--ink); color: white; }
 .settings-content { display: grid; gap: 15px; }
 .settings-content[role="tabpanel"]:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
 .settings-section { padding: 28px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); }
@@ -561,8 +561,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .report-metrics article, .report-metrics article:last-child { border: 0; }
 .correlation-list { display: grid; gap: 10px; }
 .correlation-list > div { margin: 0; padding: 12px; border-radius: var(--radius-sm); background: #f0f2ec; }
-.settings-layout > nav { gap: 7px; }
-.settings-layout > nav button { border-radius: var(--radius-sm); }
+.settings-tabs { gap: 7px; }
+.settings-tabs button { border-radius: var(--radius-sm); }
 .integration-row, .privacy-note { border-radius: var(--radius-sm); }
 .control-row { margin-top: 8px; padding: 14px; border-top: 0; border-radius: var(--radius-sm); background: #f0f2ec; }
 .control-row.danger { background: #f8eee9; }
@@ -609,12 +609,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .view-stage.entering { opacity: 0; transform: translateY(12px) scale(.998); filter: blur(1px); pointer-events: none; }
 
 .auth-backdrop { position: fixed; z-index: 200; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(4, 20, 15, .68); backdrop-filter: blur(12px); animation: experience-fade .22s ease both; }
-.auth-dialog { position: relative; width: min(100%, 460px); padding: 38px; border: 1px solid rgba(25, 58, 47, .12); border-radius: 24px; background: #f7f5ed; box-shadow: 0 28px 90px rgba(2, 20, 14, .34); color: var(--ink); animation: experience-enter .3s cubic-bezier(.22, 1, .36, 1) both; }
+.auth-dialog { position: relative; width: min(100%, 460px); max-height: calc(100vh - 48px); overflow-y: auto; padding: 38px; border: 1px solid rgba(25, 58, 47, .12); border-radius: 24px; background: #f7f5ed; box-shadow: 0 28px 90px rgba(2, 20, 14, .34); color: var(--ink); animation: experience-enter .3s cubic-bezier(.22, 1, .36, 1) both; }
 .auth-dialog > .logo { margin-bottom: 34px; }
 .auth-close { position: absolute; top: 18px; right: 18px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(19, 49, 39, .08); color: var(--ink); font: 500 22px/1 var(--sans); cursor: pointer; }
 .auth-kicker { display: block; margin-bottom: 9px; color: #527062; font-size: 10px; font-weight: 750; letter-spacing: .13em; }
 .auth-dialog h2 { margin: 0; font: 500 clamp(34px, 5vw, 46px)/1.02 var(--serif); letter-spacing: -.035em; }
 .auth-dialog > p { margin: 14px 0 26px; color: #567064; line-height: 1.55; }
+.auth-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 14px; padding: 4px; border-radius: 12px; background: rgba(18,48,38,.08); }
+.auth-mode-tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: #64766d; font: 700 12px/1 var(--sans); cursor: pointer; }
+.auth-mode-tabs button.active { background: #fff; color: var(--ink); box-shadow: 0 3px 12px rgba(6,35,25,.08); }
 .google-auth, .auth-dialog form button { width: 100%; min-height: 52px; border: 0; border-radius: 12px; font: 700 14px/1 var(--sans); cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease; }
 .google-auth { display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px solid rgba(18, 48, 38, .17); background: white; color: var(--ink); }
 .google-auth span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: conic-gradient(from -45deg, #4285f4, #34a853, #fbbc05, #ea4335, #4285f4); color: white; font-weight: 800; }
@@ -626,8 +629,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-dialog form label { color: #50665c; font-size: 10px; font-weight: 750; letter-spacing: .1em; }
 .auth-dialog form input { width: 100%; height: 52px; border: 1px solid rgba(18, 48, 38, .18); border-radius: 12px; outline: none; background: rgba(255,255,255,.72); padding: 0 15px; color: var(--ink); font: 500 15px var(--sans); }
 .auth-dialog form input:focus { border-color: #497b65; box-shadow: 0 0 0 3px rgba(73,123,101,.12); }
+.password-field { position: relative; }
+.password-field input { padding-right: 66px !important; }
+.password-field .password-toggle { position: absolute; top: 50%; right: 8px; width: auto; min-height: 34px; margin: 0; padding: 0 9px; transform: translateY(-50%); background: transparent; color: #527062; font-size: 11px; }
+.password-field .password-toggle:hover { transform: translateY(-50%); box-shadow: none; }
+.password-rules { margin: -1px 0 3px !important; color: #718078 !important; font-size: 10px; line-height: 1.45 !important; }
+.auth-dialog form .forgot-password { width: max-content; min-height: 24px; margin: -2px 0 0 auto; padding: 0; background: transparent; color: #356653; font-size: 11px; }
+.auth-dialog form .forgot-password:hover { transform: none; box-shadow: none; text-decoration: underline; }
 .auth-dialog form button { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 4px; background: var(--ink); color: white; }
+.auth-dialog .magic-link-form { margin-top: 8px; }
+.auth-dialog form .magic-link-button { min-height: 40px; margin: 0; background: transparent; color: #356653; font-size: 11px; }
+.auth-dialog form .magic-link-button:hover { transform: none; box-shadow: none; text-decoration: underline; }
 .auth-status { padding: 12px 14px; border-radius: 10px; background: #e0ecd7; color: #234c3c !important; font-size: 13px; }
+.auth-status.error { background: #f7dfd8; color: #7e3124 !important; }
 .auth-dialog > small { display: block; margin-top: 20px; color: #77867e; font-size: 10px; line-height: 1.5; text-align: center; }
 
 @keyframes experience-enter {
@@ -728,8 +742,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .report-score { border-left: 0; border-top: 1px solid rgba(255,255,255,.2); padding: 20px 0 0; text-align: left; }
   .report-metrics { grid-template-columns: 1fr; }
   .settings-layout { grid-template-columns: 1fr; }
-  .settings-layout > nav { overflow-x: auto; flex-direction: row; }
-  .settings-layout > nav button { white-space: nowrap; }
+  .settings-tabs { overflow-x: auto; flex-direction: row; }
+  .settings-tabs button { white-space: nowrap; }
 }
 
 @media (max-width: 480px) {

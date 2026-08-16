@@ -26,9 +26,10 @@ test("server-renders the Daymark landing experience", async () => {
 });
 
 test("keeps persistent records scoped to an authenticated and rate-limited user", async () => {
-  const [route, auth, migration, hardening, rateFix, rateRls, ratePolicy, model, config] = await Promise.all([
+  const [route, auth, page, migration, hardening, rateFix, rateRls, ratePolicy, model, config] = await Promise.all([
     readFile(new URL("../app/api/daymark/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/supabase.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260814015817_daymark_portable_storage.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260816125924_daymark_security_hardening.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260816130113_fix_daymark_rate_limiter.sql", import.meta.url), "utf8"),
@@ -39,6 +40,11 @@ test("keeps persistent records scoped to an authenticated and rate-limited user"
   ]);
   assert.match(auth, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(auth, /authorization/);
+  assert.match(page, /signInWithPassword/);
+  assert.match(page, /auth\.signUp/);
+  assert.match(page, /resetPasswordForEmail/);
+  assert.match(page, /auth\.updateUser\(\{ password \}\)/);
+  assert.match(page, /password\.length < 12/);
   assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
   assert.match(route, /global: \{ headers: \{ Authorization/);
   assert.match(route, /from\("daymark_checkins"\).*\.eq\("user_id", user\.userId\)/s);
@@ -55,6 +61,7 @@ test("keeps persistent records scoped to an authenticated and rate-limited user"
   assert.match(ratePolicy, /select current_setting/);
   assert.match(route, /MAX_REQUEST_BYTES/);
   assert.match(route, /supabase\.rpc\("daymark_consume_rate_limit"\)/);
+  assert.doesNotMatch(route, /execute_sql|unsafe|raw\s*\(/i);
   assert.match(route, /Too many requests/);
   assert.match(route, /private, no-store/);
   assert.match(config, /Content-Security-Policy/);

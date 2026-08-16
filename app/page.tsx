@@ -38,10 +38,25 @@ async function daymarkAction(payload: Record<string, unknown>) {
   return result as DaymarkData;
 }
 
-function AuthDialog({ onClose }: { onClose: () => void }) {
+type AuthMode = "signin" | "signup" | "recovery";
+
+function passwordIssue(password: string) {
+  if (password.length < 12) return "Use at least 12 characters.";
+  if (!/[a-z]/.test(password)) return "Add a lowercase letter.";
+  if (!/[A-Z]/.test(password)) return "Add an uppercase letter.";
+  if (!/\d/.test(password)) return "Add a number.";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Add a symbol.";
+  return "";
+}
+
+function AuthDialog({ onClose, recoveryMode = false, onRecovered }: { onClose: () => void; recoveryMode?: boolean; onRecovered?: () => void }) {
+  const [mode, setMode] = useState<AuthMode>(recoveryMode ? "recovery" : "signin");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState<"email" | "google" | null>(null);
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [status, setStatus] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const [busy, setBusy] = useState<"password" | "email" | "google" | "reset" | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -52,15 +67,74 @@ function AuthDialog({ onClose }: { onClose: () => void }) {
   const sendEmailLink = async (event: FormEvent) => {
     event.preventDefault();
     setBusy("email");
-    setStatus("");
+    setStatus(null);
     try {
       const { error } = await getSupabaseBrowserClient().auth.signInWithOtp({
         email,
         options: { emailRedirectTo: window.location.origin },
       });
-      setStatus(error ? error.message : "Check your inbox — your secure sign-in link is on its way.");
+      setStatus(error ? { message: "We could not send the sign-in link. Please try again.", tone: "error" } : { message: "Check your inbox — your secure sign-in link is on its way.", tone: "success" });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Sign-in is temporarily unavailable.");
+      console.error("Passwordless sign-in failed", error);
+      setStatus({ message: "Sign-in is temporarily unavailable.", tone: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const submitPassword = async (event: FormEvent) => {
+    event.preventDefault();
+    setStatus(null);
+
+    if (mode !== "signin") {
+      const issue = passwordIssue(password);
+      if (issue) {
+        setStatus({ message: issue, tone: "error" });
+        return;
+      }
+      if (mode === "recovery" && password !== passwordConfirmation) {
+        setStatus({ message: "The passwords do not match.", tone: "error" });
+        return;
+      }
+    }
+
+    setBusy("password");
+    try {
+      const auth = getSupabaseBrowserClient().auth;
+      if (mode === "signin") {
+        const { error } = await auth.signInWithPassword({ email, password });
+        if (error) setStatus({ message: "Email or password is incorrect.", tone: "error" });
+      } else if (mode === "signup") {
+        const { error } = await auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+        setStatus(error
+          ? { message: "We could not create the account. Check the details and try again.", tone: "error" }
+          : { message: "Check your email to confirm your account, then sign in.", tone: "success" });
+      } else {
+        const { error } = await auth.updateUser({ password });
+        if (error) setStatus({ message: "We could not update the password. Request a new reset link and try again.", tone: "error" });
+        else onRecovered?.();
+      }
+    } catch (error) {
+      console.error("Password authentication failed", error);
+      setStatus({ message: "Authentication is temporarily unavailable.", tone: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const resetPassword = async () => {
+    if (!email) {
+      setStatus({ message: "Enter your email address first.", tone: "error" });
+      return;
+    }
+    setBusy("reset");
+    setStatus(null);
+    try {
+      await getSupabaseBrowserClient().auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      setStatus({ message: "If an account exists for that email, a reset link is on its way.", tone: "success" });
+    } catch (error) {
+      console.error("Password reset failed", error);
+      setStatus({ message: "Password reset is temporarily unavailable.", tone: "error" });
     } finally {
       setBusy(null);
     }
@@ -68,21 +142,32 @@ function AuthDialog({ onClose }: { onClose: () => void }) {
 
   const signInWithGoogle = async () => {
     setBusy("google");
-    setStatus("");
+    setStatus(null);
     try {
       const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: window.location.origin },
       });
-      if (error) setStatus(error.message);
+      if (error) setStatus({ message: "Google sign-in could not be started.", tone: "error" });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Google sign-in is temporarily unavailable.");
+      console.error("Google sign-in failed", error);
+      setStatus({ message: "Google sign-in is temporarily unavailable.", tone: "error" });
     } finally {
       setBusy(null);
     }
   };
 
-  return <div className="auth-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button className="auth-close" onClick={onClose} aria-label="Close sign in">×</button><Logo dark /><span className="auth-kicker">YOUR PRIVATE WORKSPACE</span><h2 id="auth-title">Welcome to Daymark.</h2><p>Sign in without another password. We’ll send a secure link to your email.</p><button className="google-auth" onClick={() => void signInWithGoogle()} disabled={busy !== null}><span aria-hidden="true">G</span>{busy === "google" ? "Opening Google…" : "Continue with Google"}</button><div className="auth-divider"><span>or use email</span></div><form onSubmit={sendEmailLink}><label htmlFor="auth-email">EMAIL ADDRESS</label><input id="auth-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /><button type="submit" disabled={busy !== null}>{busy === "email" ? "Sending link…" : "Email me a sign-in link"}<span className="solid-arrow" aria-hidden="true" /></button></form>{status ? <p className="auth-status" role="status">{status}</p> : null}<small>By continuing, you agree to use Daymark for personal reflection. Your check-ins remain tied to your private account.</small></section></div>;
+  const switchMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setPassword("");
+    setPasswordConfirmation("");
+    setStatus(null);
+  };
+
+  const title = mode === "recovery" ? "Choose a new password." : mode === "signup" ? "Create your Daymark." : "Welcome back.";
+  const description = mode === "recovery" ? "Use a strong password you do not use on another service." : "Your check-ins stay inside your private account.";
+
+  return <div className="auth-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button className="auth-close" onClick={onClose} aria-label="Close sign in">×</button><Logo dark /><span className="auth-kicker">YOUR PRIVATE WORKSPACE</span><h2 id="auth-title">{title}</h2><p>{description}</p>{mode !== "recovery" ? <><div className="auth-mode-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => switchMode("signin")}>Sign in</button><button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => switchMode("signup")}>Create account</button></div><button className="google-auth" onClick={() => void signInWithGoogle()} disabled={busy !== null}><span aria-hidden="true">G</span>{busy === "google" ? "Opening Google…" : "Continue with Google"}</button><div className="auth-divider"><span>or use email and password</span></div></> : null}<form onSubmit={submitPassword}>{mode !== "recovery" ? <><label htmlFor="auth-email">EMAIL ADDRESS</label><input id="auth-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></> : null}<label htmlFor="auth-password">{mode === "recovery" ? "NEW PASSWORD" : "PASSWORD"}</label><div className="password-field"><input id="auth-password" type={passwordVisible ? "text" : "password"} autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={mode === "signin" ? undefined : 12} required /><button type="button" className="password-toggle" onClick={() => setPasswordVisible((visible) => !visible)} aria-label={passwordVisible ? "Hide password" : "Show password"}>{passwordVisible ? "Hide" : "Show"}</button></div>{mode !== "signin" ? <p className="password-rules">12+ characters with uppercase, lowercase, a number and a symbol.</p> : null}{mode === "recovery" ? <><label htmlFor="auth-password-confirmation">CONFIRM NEW PASSWORD</label><input id="auth-password-confirmation" type="password" autoComplete="new-password" value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} minLength={12} required /></> : null}{mode === "signin" ? <button type="button" className="forgot-password" onClick={() => void resetPassword()} disabled={busy !== null}>{busy === "reset" ? "Sending reset link…" : "Forgot password?"}</button> : null}<button type="submit" disabled={busy !== null}>{busy === "password" ? "Please wait…" : mode === "recovery" ? "Save new password" : mode === "signup" ? "Create account" : "Sign in"}<span className="solid-arrow" aria-hidden="true" /></button></form>{mode === "signin" ? <form className="magic-link-form" onSubmit={sendEmailLink}><button type="submit" className="magic-link-button" disabled={busy !== null}>{busy === "email" ? "Sending link…" : "Email me a passwordless link"}</button></form> : null}{status ? <p className={`auth-status ${status.tone}`} role="status">{status.message}</p> : null}<small>Passwords are handled by Supabase Auth and never stored by Daymark. Your check-ins remain tied to your private account.</small></section></div>;
 }
 
 const week = [
@@ -118,7 +203,7 @@ const faqs = [
   { category: "Privacy", question: "Can my employer see or use my forecasts?", answer: "No. Daymark is designed as an individual reflection tool, not an employee-ranking system. Your workspace is tied to your account, and forecasts are not presented as medical or employment assessments." },
   { category: "Calendar", question: "Is calendar data used in the model?", answer: "Not yet. The current tested model uses only manual morning signals and evening outcomes. Calendar timing may be added later, but it will require a real provider connection and separate validation before influencing forecasts." },
   { category: "Data", question: "Can I export or permanently delete my information?", answer: "Yes. Data & Settings lets you download your profile, check-ins, priorities and outcomes as JSON. You can also permanently delete the Daymark records attached to your account." },
-  { category: "Accounts", question: "How do I sign in?", answer: "Use a secure email sign-in link or continue with Google when that provider is enabled. Daymark uses Supabase Auth to verify your session before any private information is loaded or saved." },
+  { category: "Accounts", question: "How do I sign in?", answer: "Use email and password, a secure passwordless email link, or continue with Google. New email accounts must be confirmed before access. Daymark uses Supabase Auth to verify your session before private information is loaded or saved." },
   { category: "Forecasts", question: "How is the model tested?", answer: "Daymark uses ridge regression and rolling-origin backtesting: each historical day is predicted only from days that came before it. The app reports mean absolute error and an estimated 80% range when enough paired outcomes exist." },
 ] as const;
 
@@ -442,14 +527,17 @@ function Settings({ setModal, data, onCalendarToggle, onProfileUpdate, onDelete 
   const [remindersSaved, setRemindersSaved] = useState(false);
   const connected = Boolean(data.profile?.calendarConnected);
   useEffect(() => {
-    try {
-      const preferences = JSON.parse(localStorage.getItem("daymark-reminders:v1") ?? "null");
-      if (!preferences) return;
-      setMorningReminder(preferences.morningEnabled !== false);
-      setEveningReminder(preferences.eveningEnabled !== false);
-      if (typeof preferences.morningTime === "string") setMorningTime(preferences.morningTime);
-      if (typeof preferences.eveningTime === "string") setEveningTime(preferences.eveningTime);
-    } catch { /* Keep safe defaults if a device preference is malformed. */ }
+    const timer = window.setTimeout(() => {
+      try {
+        const preferences = JSON.parse(localStorage.getItem("daymark-reminders:v1") ?? "null");
+        if (!preferences) return;
+        setMorningReminder(preferences.morningEnabled !== false);
+        setEveningReminder(preferences.eveningEnabled !== false);
+        if (typeof preferences.morningTime === "string") setMorningTime(preferences.morningTime);
+        if (typeof preferences.eveningTime === "string") setEveningTime(preferences.eveningTime);
+      } catch { /* Keep safe defaults if a device preference is malformed. */ }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   const exportData = () => { const exported = JSON.stringify({ product: "Daymark", exportedAt: new Date().toISOString(), user: data.user, profile: data.profile, checkins: data.checkins, priorities: data.priorities }, null, 2); const url = URL.createObjectURL(new Blob([exported], {type:"application/json"})); const a=document.createElement("a"); a.href=url; a.download="daymark-data.json"; a.click(); URL.revokeObjectURL(url); };
   const saveProfile = async (event: FormEvent) => { event.preventDefault(); await onProfileUpdate(displayName, goal); setSaved(true); window.setTimeout(() => setSaved(false), 1800); };
@@ -459,7 +547,7 @@ function Settings({ setModal, data, onCalendarToggle, onProfileUpdate, onDelete 
     window.setTimeout(() => setRemindersSaved(false), 1800);
   };
   const panelId = `settings-panel-${activeSection}`;
-  return <><AppHeader title="Your data, your choices." subtitle="DATA & SETTINGS" setModal={setModal} /><div className="settings-layout"><nav aria-label="Settings sections" role="tablist" aria-orientation="vertical">{sections.map((section) => <button key={section.id} id={`settings-tab-${section.id}`} role="tab" aria-selected={activeSection === section.id} aria-controls={`settings-panel-${section.id}`} className={activeSection === section.id ? "active" : ""} onClick={() => setActiveSection(section.id)}>{section.label}</button>)}</nav><div className="settings-content" id={panelId} role="tabpanel" aria-labelledby={`settings-tab-${activeSection}`}>
+  return <><AppHeader title="Your data, your choices." subtitle="DATA & SETTINGS" setModal={setModal} /><div className="settings-layout"><div className="settings-tabs" aria-label="Settings sections" role="tablist" aria-orientation="vertical">{sections.map((section) => <button key={section.id} id={`settings-tab-${section.id}`} role="tab" aria-selected={activeSection === section.id} aria-controls={`settings-panel-${section.id}`} className={activeSection === section.id ? "active" : ""} onClick={() => setActiveSection(section.id)}>{section.label}</button>)}</div><div className="settings-content" id={panelId} role="tabpanel" aria-labelledby={`settings-tab-${activeSection}`}>
     {activeSection === "profile" && <section className="settings-section"><div><h2>Personal workspace</h2><p>Your account and preferences are stored privately and attached to your signed-in identity.</p></div><form className="profile-form" onSubmit={saveProfile}><label>DISPLAY NAME<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} /></label><label>ACCOUNT EMAIL<input value={data.user.email} disabled /></label><label>PRIMARY GOAL<select value={goal} onChange={(event) => setGoal(event.target.value)}><option>Improve daily focus</option><option>Plan more realistically</option><option>Build healthier routines</option></select></label><button className="dark-button" type="submit">{saved ? "✓ Saved" : "Save profile"}</button></form></section>}
     {activeSection === "model" && <section className="settings-section"><div><h2>Prediction model</h2><p>Daymark uses personalized ridge regression only after {data.forecastModel.minimumDays} matched outcomes. Before that, the displayed number is your observed baseline—not a weighted prediction.</p></div>{[["Method",data.forecastModel.method],["Outcome",data.forecastModel.outcome],["Matched days",`${data.forecastModel.pairedDays} / ${data.forecastModel.minimumDays}`],["Forward-test MAE",data.forecastModel.mae == null ? "Not available yet" : `${data.forecastModel.mae} points`]].map(([label,value])=><div className="weight-row" key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>}
     {activeSection === "integrations" && <section className="settings-section"><div><h2>Calendar connection</h2><p>Daymark only reads event times and availability. Titles, descriptions, attendees and meeting contents are never stored.</p></div><div className="integration-row"><span className="calendar-logo">31</span><div><strong>Google Calendar</strong><small>{connected ? "Enabled for your workspace" : "Not connected"}</small></div><button className={connected ? "connected-button" : "outline-button"} onClick={()=>void onCalendarToggle(!connected)}>{connected ? "✓ Connected" : "Connect"}</button></div></section>}
@@ -540,19 +628,30 @@ export default function Home() {
   const [experience, setExperience] = useState<"marketing" | "demo" | "onboarding">("marketing");
   const [authOpen, setAuthOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const passwordRecoveryInProgress = useRef(false);
   const onboardingAfterSignIn = useRef(false);
   useEffect(() => { document.title = experience === "marketing" ? "Daymark · Personal productivity forecasting" : "Today · Daymark"; }, [experience]);
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const supabase = getSupabaseBrowserClient();
     void supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) return;
+      if (!data.session || passwordRecoveryInProgress.current) return;
       setAuthenticated(true);
       setExperience("demo");
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       setAuthenticated(Boolean(session));
+      if (event === "PASSWORD_RECOVERY") {
+        passwordRecoveryInProgress.current = true;
+        setPasswordRecovery(true);
+        setAuthOpen(true);
+        setExperience("marketing");
+        return;
+      }
       if (session) {
+        passwordRecoveryInProgress.current = false;
+        setPasswordRecovery(false);
         setAuthOpen(false);
         setExperience(onboardingAfterSignIn.current ? "onboarding" : "demo");
         onboardingAfterSignIn.current = false;
@@ -560,7 +659,7 @@ export default function Home() {
     });
     return () => data.subscription.unsubscribe();
   }, []);
-  const signIn = (onboarding = false) => { onboardingAfterSignIn.current = onboarding; setAuthOpen(true); };
-  if (experience === "marketing") return <><Marketing onStart={() => signIn(true)} onDemo={() => setExperience("demo")} onSignIn={() => signIn(false)} />{authOpen ? <AuthDialog onClose={() => setAuthOpen(false)} /> : null}</>;
+  const signIn = (onboarding = false) => { onboardingAfterSignIn.current = onboarding; passwordRecoveryInProgress.current = false; setPasswordRecovery(false); setAuthOpen(true); };
+  if (experience === "marketing") return <><Marketing onStart={() => signIn(true)} onDemo={() => setExperience("demo")} onSignIn={() => signIn(false)} />{authOpen ? <AuthDialog key={passwordRecovery ? "password-recovery" : "account-access"} recoveryMode={passwordRecovery} onRecovered={() => { passwordRecoveryInProgress.current = false; setPasswordRecovery(false); setAuthOpen(false); setExperience("demo"); }} onClose={() => setAuthOpen(false)} /> : null}</>;
   return <Dashboard authenticated={authenticated} initialOnboarding={experience === "onboarding"} exit={() => setExperience("marketing")} />;
 }
