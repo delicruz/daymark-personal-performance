@@ -22,10 +22,9 @@ export function buildTrackedDayTrend(checkins: TrendCheckin[]) {
 
   const all = [...trackedDates].sort().map((date) => ({ date, score: scoreByDate.get(date) ?? null }));
   const points = all.slice(-7);
-  const scored = all.filter((point): point is { date: string; score: number } => point.score != null);
-  const recentScored = scored.slice(-7);
+  const recentScored = points.filter((point): point is { date: string; score: number } => point.score != null);
   const average = recentScored.length ? Math.round(recentScored.reduce((sum, point) => sum + point.score, 0) / recentScored.length) : null;
-  const previousScored = scored.slice(Math.max(0, scored.length - recentScored.length * 2), Math.max(0, scored.length - recentScored.length));
+  const previousScored = all.slice(Math.max(0, all.length - 14), Math.max(0, all.length - 7)).filter((point): point is { date: string; score: number } => point.score != null);
 
   let comparison = "Add an evening review to create a score";
   let delta: number | null = null;

@@ -22,6 +22,14 @@ test("morning-only tracked dates remain visible without inventing a score", () =
   assert.equal(trend.average, 70);
 });
 
+test("average only uses scored outcomes inside the visible tracked-day window", () => {
+  const checkins = [{ entryDate: "2026-08-01", entryType: "evening", productivity: 10 }];
+  for (let day = 2; day <= 8; day += 1) checkins.push({ entryDate: `2026-08-0${day}`, entryType: "morning", productivity: null });
+  const trend = buildTrackedDayTrend(checkins);
+  assert.equal(trend.average, null);
+  assert.equal(trend.outcomeCount, 0);
+});
+
 test("calendar insight requires paired outcomes and labels association", () => {
   const summaries = [60, 120, 180].map((meetingMinutes, index) => ({ summaryDate: `2026-08-0${index + 1}`, meetingCount: index + 1, meetingMinutes, focusMinutes: 480 - meetingMinutes }));
   const checkins = [9, 7, 5].map((productivity, index) => ({ entryDate: `2026-08-0${index + 1}`, entryType: "evening", productivity }));
