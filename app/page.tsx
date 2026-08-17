@@ -213,7 +213,7 @@ const faqs = [
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <span className={`logo ${dark ? "logo-dark" : ""}`}>
-      <Image className="logo-mark" src="/daymark-heart.png" width={34} height={34} alt="" aria-hidden="true" unoptimized />
+      <Image className="logo-mark" src="/daymark-heart.svg" width={34} height={34} alt="" aria-hidden="true" unoptimized />
       <strong>Daymark</strong>
     </span>
   );

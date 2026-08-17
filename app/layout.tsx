@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Daymark · Personal productivity forecasting",
     description: "Understand your work rhythm with private, explainable productivity forecasts based on daily check-ins and calendar availability.",
-    icons: { icon: "/daymark-heart.png", apple: "/daymark-heart.png" },
+    icons: { icon: "/daymark-heart.svg", apple: "/daymark-heart.png" },
     openGraph: {
       title: "Daymark · Plan tomorrow with better signals",
       description: "Private, explainable productivity forecasts built around your own work rhythm.",
