@@ -15,6 +15,14 @@ const boundedNumber = (value: unknown, fallback: number, min: number, max: numbe
 type AuthenticatedUser = { userId: string; email: string; displayName: string };
 type RequestContext = { user: AuthenticatedUser; supabase: SupabaseClient };
 type DatabaseRecord = Record<string, unknown>;
+type GoogleCalendarEvent = {
+  status?: string;
+  transparency?: string;
+  eventType?: string;
+  start?: { dateTime?: string };
+  end?: { dateTime?: string };
+  attendees?: { self?: boolean; responseStatus?: string }[];
+};
 
 function jsonResponse(body: unknown, status = 200, headers?: HeadersInit) {
   const responseHeaders = new Headers(headers);
@@ -137,15 +145,122 @@ function mapPriority(row: DatabaseRecord) {
   };
 }
 
+function mapCalendarSummary(row: DatabaseRecord) {
+  return {
+    summaryDate: String(row.summary_date),
+    meetingCount: Number(row.meeting_count),
+    meetingMinutes: Number(row.meeting_minutes),
+    focusMinutes: Number(row.focus_minutes),
+    syncedAt: String(row.synced_at),
+  };
+}
+
+function clockMinutes(value: unknown, fallback: number) {
+  const match = String(value ?? "").match(/^(\d{2}):(\d{2})$/);
+  if (!match) return fallback;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  return minutes >= 0 && minutes <= 1440 ? minutes : fallback;
+}
+
+function unionMinutes(intervals: [number, number][]) {
+  const sorted = intervals.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let current: [number, number] | null = null;
+  for (const interval of sorted) {
+    if (!current) current = [...interval];
+    else if (interval[0] <= current[1]) current[1] = Math.max(current[1], interval[1]);
+    else { total += current[1] - current[0]; current = [...interval]; }
+  }
+  return Math.round(total + (current ? current[1] - current[0] : 0));
+}
+
+async function syncGoogleCalendar(context: RequestContext, providerToken: string, timeZone: string) {
+  if (providerToken.length < 20 || providerToken.length > 4096) throw new Error("INVALID_GOOGLE_TOKEN");
+  try { new Intl.DateTimeFormat("en", { timeZone }).format(); } catch { throw new Error("INVALID_TIME_ZONE"); }
+
+  const now = new Date();
+  const timeMin = new Date(now.getTime() - 35 * 86_400_000).toISOString();
+  const timeMax = new Date(now.getTime() + 8 * 86_400_000).toISOString();
+  const events: GoogleCalendarEvent[] = [];
+  let pageToken = "";
+  do {
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      timeZone,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "2500",
+      fields: "items(status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+      headers: { Authorization: `Bearer ${providerToken}` },
+      cache: "no-store",
+    });
+    if (response.status === 401 || response.status === 403) throw new Error("GOOGLE_CALENDAR_PERMISSION");
+    if (!response.ok) throw new Error("GOOGLE_CALENDAR_UNAVAILABLE");
+    const body = await response.json() as { items?: GoogleCalendarEvent[]; nextPageToken?: string };
+    events.push(...(body.items ?? []));
+    pageToken = body.nextPageToken ?? "";
+  } while (pageToken && events.length < 10_000);
+
+  const { data: profile, error: profileError } = await context.supabase
+    .from("daymark_users")
+    .select("working_start,working_end")
+    .eq("user_id", context.user.userId)
+    .single();
+  if (profileError) throw profileError;
+  const workStart = clockMinutes(profile?.working_start, 540);
+  const workEnd = clockMinutes(profile?.working_end, 1020);
+  const workdayMinutes = Math.max(0, workEnd - workStart);
+  const grouped = new Map<string, { count: number; intervals: [number, number][] }>();
+
+  for (const event of events) {
+    const start = event.start?.dateTime;
+    const end = event.end?.dateTime;
+    const declined = event.attendees?.some((attendee) => attendee.self && attendee.responseStatus === "declined");
+    if (!start || !end || event.status === "cancelled" || event.transparency === "transparent" || ["workingLocation", "focusTime", "outOfOffice", "birthday"].includes(event.eventType ?? "") || declined) continue;
+    const date = start.slice(0, 10);
+    const startMatch = start.match(/T(\d{2}):(\d{2})/);
+    const endMatch = end.match(/T(\d{2}):(\d{2})/);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !startMatch || !endMatch) continue;
+    const startMinute = Number(startMatch[1]) * 60 + Number(startMatch[2]);
+    const endMinute = end.slice(0, 10) === date ? Number(endMatch[1]) * 60 + Number(endMatch[2]) : 1440;
+    const bucket = grouped.get(date) ?? { count: 0, intervals: [] };
+    bucket.count += 1;
+    bucket.intervals.push([startMinute, Math.max(startMinute, endMinute)]);
+    grouped.set(date, bucket);
+  }
+
+  const syncedAt = new Date().toISOString();
+  const summaries = [...grouped].map(([summaryDate, bucket]) => {
+    const meetingMinutes = Math.min(1440, unionMinutes(bucket.intervals));
+    const busyAtWork = unionMinutes(bucket.intervals.map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)]));
+    return { user_id: context.user.userId, summary_date: summaryDate, meeting_count: Math.min(500, bucket.count), meeting_minutes: meetingMinutes, focus_minutes: Math.max(0, workdayMinutes - busyAtWork), synced_at: syncedAt };
+  });
+
+  const { error: deleteError } = await context.supabase.from("daymark_calendar_summaries").delete().eq("user_id", context.user.userId).gte("summary_date", timeMin.slice(0, 10)).lte("summary_date", timeMax.slice(0, 10));
+  if (deleteError) throw deleteError;
+  if (summaries.length) {
+    const { error } = await context.supabase.from("daymark_calendar_summaries").upsert(summaries, { onConflict: "user_id,summary_date" });
+    if (error) throw error;
+  }
+  const { error: connectError } = await context.supabase.from("daymark_users").update({ calendar_connected: true, updated_at: syncedAt }).eq("user_id", context.user.userId);
+  if (connectError) throw connectError;
+}
+
 async function userData({ user, supabase }: RequestContext) {
-  const [profileResult, checkinsResult, prioritiesResult] = await Promise.all([
+  const [profileResult, checkinsResult, prioritiesResult, calendarResult] = await Promise.all([
     supabase.from("daymark_users").select("*").eq("user_id", user.userId).maybeSingle(),
     supabase.from("daymark_checkins").select("*").eq("user_id", user.userId).order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(60),
     supabase.from("daymark_priorities").select("*").eq("user_id", user.userId).eq("priority_date", today()).order("sort_order").order("id"),
+    supabase.from("daymark_calendar_summaries").select("summary_date,meeting_count,meeting_minutes,focus_minutes,synced_at").eq("user_id", user.userId).order("summary_date", { ascending: false }).limit(60),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (checkinsResult.error) throw checkinsResult.error;
   if (prioritiesResult.error) throw prioritiesResult.error;
+  if (calendarResult.error) throw calendarResult.error;
 
   const profile = mapProfile(profileResult.data as DatabaseRecord | null);
   const checkins = (checkinsResult.data as DatabaseRecord[]).map(mapCheckin);
@@ -158,6 +273,7 @@ async function userData({ user, supabase }: RequestContext) {
     checkins,
     latestMorning,
     priorities,
+    calendarSummaries: (calendarResult.data as DatabaseRecord[]).map(mapCalendarSummary),
     forecast: prediction.forecast,
     forecastModel: prediction.model,
     baselineDays: new Set(checkins.filter((entry) => entry.entryType === "morning").map((entry) => entry.entryDate)).size,
@@ -239,8 +355,12 @@ export async function POST(request: Request) {
       const goal = String(payload.goal ?? "Improve daily focus").trim().slice(0, 120);
       const { error } = await supabase.from("daymark_users").update({ display_name: displayName, goal, updated_at: new Date().toISOString() }).eq("user_id", user.userId);
       if (error) throw error;
-    } else if (action === "calendar.toggle") {
-      const { error } = await supabase.from("daymark_users").update({ calendar_connected: Boolean(payload.connected), updated_at: new Date().toISOString() }).eq("user_id", user.userId);
+    } else if (action === "calendar.sync") {
+      await syncGoogleCalendar(context, String(payload.providerToken ?? ""), String(payload.timeZone ?? "UTC"));
+    } else if (action === "calendar.disconnect") {
+      const { error: summaryError } = await supabase.from("daymark_calendar_summaries").delete().eq("user_id", user.userId);
+      if (summaryError) throw summaryError;
+      const { error } = await supabase.from("daymark_users").update({ calendar_connected: false, updated_at: new Date().toISOString() }).eq("user_id", user.userId);
       if (error) throw error;
     } else {
       return jsonResponse({ error: "Unsupported action." }, 400);
@@ -248,6 +368,10 @@ export async function POST(request: Request) {
 
     return jsonResponse(await userData(context));
   } catch (error) {
+    if (error instanceof Error && error.message === "GOOGLE_CALENDAR_PERMISSION") return jsonResponse({ error: "Google Calendar access expired or was not granted. Please reconnect it." }, 400);
+    if (error instanceof Error && error.message === "INVALID_GOOGLE_TOKEN") return jsonResponse({ error: "Google Calendar could not be connected. Please try again." }, 400);
+    if (error instanceof Error && error.message === "INVALID_TIME_ZONE") return jsonResponse({ error: "Your device time zone is not supported." }, 400);
+    if (error instanceof Error && error.message === "GOOGLE_CALENDAR_UNAVAILABLE") return jsonResponse({ error: "Google Calendar is temporarily unavailable." }, 502);
     console.error("[daymark] failed to save user data", error);
     return jsonResponse({ error: "Your changes could not be saved." }, 500);
   }

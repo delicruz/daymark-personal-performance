@@ -301,20 +301,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .meeting-block { background: #f2d6ca; color: #8b4c39; }
 .meeting-block.light { background: #ece2c6; color: #796530; }
 .priorities-card label { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 10px; cursor: pointer; }
-.priorities-card input { appearance: none; width: 17px; height: 17px; border: 1px solid #9caaa4; }
-.priorities-card input:checked { background: var(--ink); box-shadow: inset 0 0 0 4px var(--paper); }
-.priorities-card input:checked + span { color: var(--muted); text-decoration: line-through; }
+.priorities-card input[type="checkbox"] { appearance: none; width: 17px; height: 17px; border: 1px solid #9caaa4; }
+.priorities-card input[type="checkbox"]:checked { background: var(--ink); box-shadow: inset 0 0 0 4px var(--paper); }
+.priorities-card input[type="checkbox"]:checked + span { color: var(--muted); text-decoration: line-through; }
 .priorities-card label small { padding: 4px 6px; background: #eceee8; font: 700 7px var(--font-geist-mono), monospace; }
 .trend-summary { display: flex; align-items: center; margin: 14px 0; }
 .trend-summary > div { display: grid; }
 .trend-summary strong { font-size: 32px; letter-spacing: -.05em; }
 .trend-summary span { color: var(--muted); font-size: 8px; }
 .trend-summary em { margin-left: auto; padding: 5px 7px; background: #dcebdc; color: #397d58; font: 700 7px var(--font-geist-mono), monospace; font-style: normal; }
+.trend-summary em.down { background: #f5dfd4; color: #a4513a; }
 .mini-bars { height: 74px; display: flex; gap: 7px; align-items: end; }
 .mini-bars > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: center; gap: 5px; }
 .mini-bars span { width: 100%; max-width: 18px; background: #cbd5cb; }
 .mini-bars span.peak { background: var(--orange); }
+.mini-bars span.pending { min-height: 6px; border: 1px dashed #a8b2aa; background: transparent; }
 .mini-bars small { color: var(--muted); font-size: 7px; }
+.calendar-connect { min-height: 116px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.calendar-connect strong { font-size: 11px; }
+.calendar-connect p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.calendar-insight { display: flex; gap: 10px; padding: 12px; border-radius: var(--radius-sm); background: #f0f2ec; }
+.calendar-insight > span { color: var(--orange); }
+.calendar-insight p { display: grid; gap: 4px; margin: 0; }
+.calendar-insight small { color: var(--muted); font: 700 7px var(--font-geist-mono), monospace; letter-spacing: .08em; }
+.calendar-insight strong { font-size: 9px; line-height: 1.45; }
 .app-footer { display: flex; justify-content: space-between; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; }
 
 /* Dashboard secondary pages */
@@ -482,6 +492,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .priority-form input { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: white; color: var(--ink); outline: none; font: 550 10px var(--font-geist-sans),sans-serif; }
 .priority-form button { padding: 9px 11px; border: 0; border-radius: var(--radius-sm); background: var(--ink); color: white; font-size: 8px; font-weight: 700; cursor: pointer; }
 .priority-form button:last-child { background: #e9ece5; color: var(--muted); }
+.priority-form button:disabled, .priority-form input:disabled { cursor: wait; opacity: .6; }
 .empty-state { margin: 13px 0; padding: 14px; border-radius: var(--radius-sm); background: #f0f2ec; color: var(--muted); font-size: 10px; }
 
 /* Modals */
