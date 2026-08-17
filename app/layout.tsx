@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const socialImage = `${protocol}://${host}/og.png`;
+  const socialImage = `${protocol}://${host}/daymark-heart.png`;
 
   return {
     title: "Daymark · Personal productivity forecasting",
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: "Daymark · Plan tomorrow with better signals",
       description: "Private, explainable productivity forecasts built around your own work rhythm.",
-      images: [{ url: socialImage, width: 1536, height: 1024, alt: "Daymark personal productivity forecast" }],
+      images: [{ url: socialImage, width: 1254, height: 1254, alt: "Daymark heart pulse mark" }],
     },
     twitter: { card: "summary_large_image", images: [socialImage] },
   };
