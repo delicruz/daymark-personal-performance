@@ -240,6 +240,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .factors-card { grid-column: 1; padding: 22px 24px; }
 .calendar-card { grid-column: 2; padding: 22px; }
 .priorities-card { grid-column: 1; padding: 22px 24px; }
+.calendar-card, .priorities-card { scroll-margin-block: 24px; }
+.feature-jump-target { animation: feature-jump-highlight 1.1s ease-out; }
+@keyframes feature-jump-highlight {
+  0%, 42% { outline: 3px solid rgba(239, 122, 82, .72); outline-offset: 4px; }
+  100% { outline: 3px solid transparent; outline-offset: 9px; }
+}
 .trend-card { grid-column: 2; padding: 22px; }
 .card-label { min-height: 22px; display: flex; justify-content: space-between; align-items: start; font: 750 8px var(--font-geist-mono), monospace; letter-spacing: .1em; }
 .card-label > span:first-child { color: var(--orange); }
@@ -812,7 +818,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .confidence-line { align-items: flex-start; flex-direction: column; }
   .confidence-line small { margin-left: 0; }
   .recommendation.wide { align-items: flex-start; }
-  .recommendation.wide button { display: none; }
+  .recommendation.wide button { margin-left: 0; display: inline-flex; align-items: center; gap: 5px; padding: 7px 0; }
   .calendar-stats { grid-template-columns: 1fr; gap: 12px; }
   .calendar-stats > div { border-right: 0; }
   .calendar-stats-rich { grid-template-columns: 1fr 1fr; }

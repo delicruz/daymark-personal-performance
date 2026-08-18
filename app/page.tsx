@@ -441,6 +441,10 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
   const [priorityTitle, setPriorityTitle] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
   const [calendarDay, setCalendarDay] = useState<"today" | "tomorrow">("today");
+  const [featureJumpTarget, setFeatureJumpTarget] = useState<"calendar" | "priorities" | null>(null);
+  const calendarCardRef = useRef<HTMLElement>(null);
+  const prioritiesCardRef = useRef<HTMLElement>(null);
+  const priorityInputRef = useRef<HTMLInputElement>(null);
   const morning = data.latestMorning;
   const model = data.forecastModel;
   const completed = data.priorities.filter((priority) => priority.completed).length;
@@ -476,6 +480,26 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
         : selectedCalendar.meetingMinutes > 240
           ? `This is a commitment-heavy day. Keep demanding work inside the ${formatMinutes(selectedCalendar.longestOpenMinutes)} longest open block.`
           : `You have ${formatMinutes(selectedCalendar.focusMinutes)} open in your working day; the longest uninterrupted block is ${formatMinutes(selectedCalendar.longestOpenMinutes)}.`;
+  useEffect(() => {
+    if (!featureJumpTarget) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = featureJumpTarget === "calendar" ? calendarCardRef.current : prioritiesCardRef.current;
+      target?.scrollIntoView({ behavior: "instant", block: "center" });
+      if (featureJumpTarget === "priorities") priorityInputRef.current?.focus({ preventScroll: true });
+      else target?.focus({ preventScroll: true });
+    });
+    const clearHighlight = window.setTimeout(() => setFeatureJumpTarget(null), 1100);
+    return () => { window.cancelAnimationFrame(frame); window.clearTimeout(clearHighlight); };
+  }, [featureJumpTarget]);
+  const openRecommendedFeature = () => {
+    if (!dailyRecommendation.hasPriority) {
+      setAddingPriority(true);
+      setFeatureJumpTarget("priorities");
+      return;
+    }
+    setCalendarDay("today");
+    setFeatureJumpTarget("calendar");
+  };
   const submitPriority = async (event: FormEvent) => { event.preventDefault(); const title = priorityTitle.trim(); if (!title || prioritySaving) return; setPrioritySaving(true); try { const saved = await onAddPriority(title); if (!saved) return; setPriorityTitle(""); setAddingPriority(false); } finally { setPrioritySaving(false); } };
   return (
     <>
@@ -488,7 +512,7 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
             <div className="large-score-ring" style={{ "--score": data.forecast } as React.CSSProperties}><div><strong>{data.forecast}</strong><span>/100</span><small>{model.status === "personalized" ? "MODEL" : "BASELINE"}</small></div></div>
           </div>
           <div className="confidence-line"><span><i /> {model.confidence} confidence</span><strong>Estimated {model.rangeCoverage}% range {model.rangeLow}–{model.rangeHigh}</strong><small>{model.pairedDays} matched outcomes{model.mae == null ? "" : ` · backtest MAE ${model.mae}`}</small></div>
-          <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE · {dailyRecommendation.timeLabel}</small><strong>{dailyRecommendation.title}</strong><p>{dailyRecommendation.rationale}</p></div><button onClick={() => { if (!dailyRecommendation.hasPriority) setAddingPriority(true); else document.querySelector(".calendar-card")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{dailyRecommendation.hasPriority ? "View calendar" : "Add priority"} <span>→</span></button></div>
+          <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE · {dailyRecommendation.timeLabel}</small><strong>{dailyRecommendation.title}</strong><p>{dailyRecommendation.rationale}</p></div><button onClick={openRecommendedFeature}>{dailyRecommendation.hasPriority ? "View calendar" : "Add priority"} <span>→</span></button></div>
         </section>
 
         <section className="checkin-card" data-tour="checkin">
@@ -503,16 +527,16 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
           {model.signals.length ? <div className="factor-list">{model.signals.map((factor) => <div className="factor" key={factor.label}><span className={factor.direction === "up" ? "factor-up" : "factor-down"}>{factor.direction === "up" ? "↑" : factor.direction === "down" ? "↓" : "·"}</span><div><strong>{factor.label}</strong><small>Compared with your own training average</small></div><b className={factor.impact >= 0 ? "positive" : "negative"}>{factor.impact > 0 ? "+" : ""}{factor.impact}</b></div>)}</div> : <p className="empty-state">Contributions appear after {model.minimumDays} matched morning and evening records. No generic signal weights are used.</p>}
         </section>
 
-        <section className="calendar-card">
+        <section ref={calendarCardRef} tabIndex={-1} className={`calendar-card${featureJumpTarget === "calendar" ? " feature-jump-target" : ""}`}>
           <div className="card-label"><span>{calendarDay === "today" ? "TODAY’S" : "TOMORROW’S"} CALENDAR</span><div className="calendar-card-actions"><div className="calendar-day-switch" aria-label="Calendar day"><button className={calendarDay === "today" ? "selected" : ""} onClick={() => setCalendarDay("today")}>TODAY</button><button className={calendarDay === "tomorrow" ? "selected" : ""} onClick={() => setCalendarDay("tomorrow")}>TOMORROW</button></div><button onClick={() => void onCalendarConnect()}>{connected ? "Sync again ↗" : "Connect Google ↗"}</button></div></div>
           {connected ? <><div className="calendar-stats calendar-stats-rich"><div><strong>{formatMinutes(selectedCalendar?.classMinutes ?? 0)}</strong><span>Classes</span></div><div><strong>{formatMinutes(selectedCalendar?.studyMinutes ?? 0)}</strong><span>Study booked</span></div><div><strong>{formatMinutes(selectedCalendar?.workMinutes ?? 0)}</strong><span>Work booked</span></div><div><strong>{formatMinutes(selectedCalendar?.focusMinutes ?? 480)}</strong><span>Open work time</span></div></div><div className="calendar-category-row"><span>{selectedCalendar?.meetingCount ?? 0} timed event{selectedCalendar?.meetingCount === 1 ? "" : "s"}</span><span>{formatMinutes(selectedCalendar?.meetingMinutes ?? 0)} scheduled</span>{calendarSpan && <span>{calendarSpan}</span>}</div><div className="calendar-insight calendar-insight-primary"><span>✦</span><p><small>PLAN THE DAY</small><strong>{calendarGuidance}</strong></p></div><p className="calendar-evidence">{calendarInsight.text}</p></> : <div className="calendar-connect"><span className="calendar-logo">31</span><div><strong>Connect Google Calendar</strong><p>See class, study and work totals from every visible selected calendar, plus open focus time. Event names and people are never stored.</p></div><button className="dark-button" onClick={() => void onCalendarConnect()}>Connect</button></div>}
         </section>
 
-        <section className="priorities-card" data-tour="priorities">
+        <section ref={prioritiesCardRef} tabIndex={-1} className={`priorities-card${featureJumpTarget === "priorities" ? " feature-jump-target" : ""}`} data-tour="priorities">
           <div className="card-label">TODAY’S PRIORITIES <span>{completed} OF {data.priorities.length} COMPLETE</span></div>
           {data.priorities.length === 0 && <p className="empty-state">Choose one meaningful outcome for today.</p>}
           {data.priorities.map((priority) => <label key={priority.id}><input type="checkbox" checked={priority.completed} onChange={(event) => void onTogglePriority(priority.id, event.target.checked)} /><span>{priority.title}</span><small>{priority.impact}</small></label>)}
-          {addingPriority ? <form className="priority-form" onSubmit={submitPriority}><input aria-label="New priority" placeholder="What matters most today?" value={priorityTitle} onChange={(event) => setPriorityTitle(event.target.value)} maxLength={180} disabled={prioritySaving} /><button type="submit" disabled={prioritySaving}>{prioritySaving ? "Adding…" : "Add"}</button><button type="button" disabled={prioritySaving} onClick={() => setAddingPriority(false)}>Cancel</button></form> : <button className="text-action" onClick={() => setAddingPriority(true)}>+ Add priority</button>}
+          {addingPriority ? <form className="priority-form" onSubmit={submitPriority}><input ref={priorityInputRef} aria-label="New priority" placeholder="What matters most today?" value={priorityTitle} onChange={(event) => setPriorityTitle(event.target.value)} maxLength={180} disabled={prioritySaving} /><button type="submit" disabled={prioritySaving}>{prioritySaving ? "Adding…" : "Add"}</button><button type="button" disabled={prioritySaving} onClick={() => setAddingPriority(false)}>Cancel</button></form> : <button className="text-action" onClick={() => setAddingPriority(true)}>+ Add priority</button>}
         </section>
 
         <section className="trend-card">
