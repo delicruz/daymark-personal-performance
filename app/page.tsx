@@ -5,6 +5,7 @@ import Image from "next/image";
 import { daymarkFetch, getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase";
 import { buildCalendarInsight, buildTrackedDayTrend } from "../lib/trend";
 import { buildInsightsSnapshot } from "../lib/insights";
+import { buildDailyRecommendation } from "../lib/recommendation";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
@@ -14,7 +15,7 @@ type UserProfile = { displayName: string; email: string; goal: string; calendarC
 type CheckinRecord = { id: number; entryDate: string; entryType: "morning" | "evening"; energy: number | null; stress: number | null; sleepMinutes: number | null; workload: string | null; plannedFocusMinutes: number | null; productivity: number | null; focusedMinutes: number | null; reflection: string | null; prediction: number | null };
 type PriorityRecord = { id: number; title: string; impact: string; completed: boolean };
 type PriorityHistoryRecord = { priorityDate: string; completed: boolean };
-type CalendarSummary = { summaryDate: string; meetingCount: number; meetingMinutes: number; focusMinutes: number; classMinutes: number; studyMinutes: number; workMinutes: number; personalMinutes: number; longestOpenMinutes: number; firstEventMinute: number | null; lastEventMinute: number | null; syncedAt: string };
+type CalendarSummary = { summaryDate: string; meetingCount: number; meetingMinutes: number; focusMinutes: number; classMinutes: number; studyMinutes: number; workMinutes: number; personalMinutes: number; longestOpenMinutes: number; longestOpenStartMinute: number | null; longestOpenEndMinute: number | null; firstEventMinute: number | null; lastEventMinute: number | null; syncedAt: string };
 type ForecastSignal = { label: string; impact: number; direction: "up" | "down" | "neutral" };
 type ForecastModel = { method: string; status: "baseline" | "calibrating" | "personalized"; outcome: string; pairedDays: number; minimumDays: number; backtestDays: number; mae: number | null; confidence: "Baseline only" | "Early" | "Moderate"; rangeLow: number; rangeHigh: number; rangeCoverage: number; signals: ForecastSignal[] };
 type DaymarkData = { user: DaymarkUser; profile: UserProfile | null; checkins: CheckinRecord[]; latestMorning: CheckinRecord | null; priorities: PriorityRecord[]; priorityHistory: PriorityHistoryRecord[]; calendarSummaries: CalendarSummary[]; forecast: number; forecastModel: ForecastModel; baselineDays: number };
@@ -454,6 +455,16 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
   const tomorrowKey = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
   const selectedCalendar = data.calendarSummaries.find((summary) => summary.summaryDate === (calendarDay === "today" ? todayKey : tomorrowKey));
   const connected = Boolean(data.profile?.calendarConnected);
+  const activePriority = data.priorities.find((priority) => !priority.completed) ?? null;
+  const currentMinute = now.getHours() * 60 + now.getMinutes();
+  const dailyRecommendation = useMemo(() => buildDailyRecommendation({
+    forecast: data.forecast,
+    modelStatus: model.status,
+    plannedFocusMinutes: morning?.plannedFocusMinutes ?? null,
+    priorityTitle: activePriority?.title ?? null,
+    calendar: data.calendarSummaries.find((summary) => summary.summaryDate === todayKey) ?? null,
+    currentMinute,
+  }), [activePriority?.title, currentMinute, data.calendarSummaries, data.forecast, model.status, morning?.plannedFocusMinutes, todayKey]);
   const suggestedStudyMinutes = selectedCalendar?.classMinutes ? Math.max(0, selectedCalendar.classMinutes - selectedCalendar.studyMinutes) : 0;
   const calendarSpan = selectedCalendar?.firstEventMinute == null ? null : `${formatClock(selectedCalendar.firstEventMinute)}–${formatClock(selectedCalendar.lastEventMinute)}`;
   const calendarGuidance = !selectedCalendar
@@ -477,7 +488,7 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
             <div className="large-score-ring" style={{ "--score": data.forecast } as React.CSSProperties}><div><strong>{data.forecast}</strong><span>/100</span><small>{model.status === "personalized" ? "MODEL" : "BASELINE"}</small></div></div>
           </div>
           <div className="confidence-line"><span><i /> {model.confidence} confidence</span><strong>Estimated {model.rangeCoverage}% range {model.rangeLow}–{model.rangeHigh}</strong><small>{model.pairedDays} matched outcomes{model.mae == null ? "" : ` · backtest MAE ${model.mae}`}</small></div>
-          <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE</small><strong>Protect 9–11am for your hardest priority.</strong><p>Your energy is typically highest before your first meeting.</p></div><button>View schedule <span>→</span></button></div>
+          <div className="recommendation wide"><span>✦</span><div><small>YOUR BEST NEXT MOVE · {dailyRecommendation.timeLabel}</small><strong>{dailyRecommendation.title}</strong><p>{dailyRecommendation.rationale}</p></div><button onClick={() => { if (!dailyRecommendation.hasPriority) setAddingPriority(true); else document.querySelector(".calendar-card")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{dailyRecommendation.hasPriority ? "View calendar" : "Add priority"} <span>→</span></button></div>
         </section>
 
         <section className="checkin-card" data-tour="checkin">

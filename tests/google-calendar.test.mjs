@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calendarCategory, googleEventIdentity, localEventTime, readableSelectedCalendarIds } from "../lib/google-calendar.ts";
+import { calendarCategory, googleEventIdentity, localEventTime, longestOpenWindow, readableSelectedCalendarIds } from "../lib/google-calendar.ts";
 
 test("includes the primary and visible selected secondary calendars", () => {
   const ids = readableSelectedCalendarIds([
@@ -31,4 +31,12 @@ test("classifies a rostered barista booking as work", () => {
 
 test("keeps university seminars classified as class before generic work terms", () => {
   assert.equal(calendarCategory("Professional Communication and Teamwork (INFO 2032) - Seminar", 0), "class");
+});
+
+test("finds the exact longest opening before a rostered work shift", () => {
+  assert.deepEqual(longestOpenWindow([[11 * 60 + 45, 16 * 60 + 30]], 9 * 60, 17 * 60), {
+    start: 9 * 60,
+    end: 11 * 60 + 45,
+    minutes: 165,
+  });
 });

@@ -65,3 +65,25 @@ export function calendarCategory(summary: string, attendeeCount: number) {
   if (attendeeCount > 1 || /\b(meeting|call|sync|standup|scrum|interview|catch.?up)\b/.test(value)) return "meeting" as const;
   return "personal" as const;
 }
+
+export function longestOpenWindow(intervals: [number, number][], workStart: number, workEnd: number) {
+  const busy = intervals
+    .map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)] as [number, number])
+    .filter(([start, end]) => end > start)
+    .sort((left, right) => left[0] - right[0])
+    .reduce<[number, number][]>((merged, interval) => {
+      const previous = merged.at(-1);
+      if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]);
+      else merged.push([...interval]);
+      return merged;
+    }, []);
+
+  let cursor = workStart;
+  let longest = { start: workStart, end: workStart, minutes: 0 };
+  for (const [start, end] of busy) {
+    if (start - cursor > longest.minutes) longest = { start: cursor, end: start, minutes: start - cursor };
+    cursor = Math.max(cursor, end);
+  }
+  if (workEnd - cursor > longest.minutes) longest = { start: cursor, end: workEnd, minutes: workEnd - cursor };
+  return longest;
+}

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { calendarCategory, googleEventIdentity, localEventTime, readableSelectedCalendarIds, type GoogleCalendarListEntry } from "../../../lib/google-calendar";
+import { calendarCategory, googleEventIdentity, localEventTime, longestOpenWindow, readableSelectedCalendarIds, type GoogleCalendarListEntry } from "../../../lib/google-calendar";
 import { buildPersonalForecast } from "../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
@@ -160,6 +160,8 @@ function mapCalendarSummary(row: DatabaseRecord) {
     workMinutes: Number(row.work_minutes ?? 0),
     personalMinutes: Number(row.personal_minutes ?? 0),
     longestOpenMinutes: Number(row.longest_open_minutes ?? 0),
+    longestOpenStartMinute: row.longest_open_start_minute == null ? null : Number(row.longest_open_start_minute),
+    longestOpenEndMinute: row.longest_open_end_minute == null ? null : Number(row.longest_open_end_minute),
     firstEventMinute: row.first_event_minute == null ? null : Number(row.first_event_minute),
     lastEventMinute: row.last_event_minute == null ? null : Number(row.last_event_minute),
     syncedAt: String(row.synced_at),
@@ -183,28 +185,6 @@ function unionMinutes(intervals: [number, number][]) {
     else { total += current[1] - current[0]; current = [...interval]; }
   }
   return Math.round(total + (current ? current[1] - current[0] : 0));
-}
-
-function mergeIntervals(intervals: [number, number][]) {
-  const sorted = intervals.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
-  const merged: [number, number][] = [];
-  for (const [start, end] of sorted) {
-    const previous = merged.at(-1);
-    if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
-    else merged.push([start, end]);
-  }
-  return merged;
-}
-
-function longestOpenMinutes(intervals: [number, number][], workStart: number, workEnd: number) {
-  const busy = mergeIntervals(intervals.map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)]));
-  let cursor = workStart;
-  let longest = 0;
-  for (const [start, end] of busy) {
-    longest = Math.max(longest, start - cursor);
-    cursor = Math.max(cursor, end);
-  }
-  return Math.max(longest, workEnd - cursor, 0);
 }
 
 async function syncGoogleCalendar(context: RequestContext, providerToken: string, timeZone: string) {
@@ -312,6 +292,7 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
     const busyAtWork = unionMinutes(bucket.intervals.map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)]));
     const firstEventMinute = bucket.intervals.length ? Math.min(...bucket.intervals.map(([start]) => start)) : null;
     const lastEventMinute = bucket.intervals.length ? Math.max(...bucket.intervals.map(([, end]) => end)) : null;
+    const openWindow = longestOpenWindow(bucket.intervals, workStart, workEnd);
     return {
       user_id: context.user.userId,
       summary_date: summaryDate,
@@ -322,7 +303,9 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
       study_minutes: Math.min(1440, bucket.studyMinutes),
       work_minutes: Math.min(1440, bucket.workMinutes),
       personal_minutes: Math.min(1440, bucket.personalMinutes),
-      longest_open_minutes: Math.min(1440, longestOpenMinutes(bucket.intervals, workStart, workEnd)),
+      longest_open_minutes: Math.min(1440, openWindow.minutes),
+      longest_open_start_minute: openWindow.start,
+      longest_open_end_minute: openWindow.end,
       first_event_minute: firstEventMinute,
       last_event_minute: lastEventMinute,
       synced_at: syncedAt,
@@ -346,7 +329,7 @@ async function userData({ user, supabase }: RequestContext) {
     supabase.from("daymark_checkins").select("*").eq("user_id", user.userId).gte("entry_date", historyStart).order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(400),
     supabase.from("daymark_priorities").select("*").eq("user_id", user.userId).eq("priority_date", today()).order("sort_order").order("id"),
     supabase.from("daymark_priorities").select("priority_date,completed").eq("user_id", user.userId).gte("priority_date", historyStart).order("priority_date", { ascending: false }).limit(1000),
-    supabase.from("daymark_calendar_summaries").select("summary_date,meeting_count,meeting_minutes,focus_minutes,class_minutes,study_minutes,work_minutes,personal_minutes,longest_open_minutes,first_event_minute,last_event_minute,synced_at").eq("user_id", user.userId).gte("summary_date", historyStart).order("summary_date", { ascending: false }).limit(200),
+    supabase.from("daymark_calendar_summaries").select("summary_date,meeting_count,meeting_minutes,focus_minutes,class_minutes,study_minutes,work_minutes,personal_minutes,longest_open_minutes,longest_open_start_minute,longest_open_end_minute,first_event_minute,last_event_minute,synced_at").eq("user_id", user.userId).gte("summary_date", historyStart).order("summary_date", { ascending: false }).limit(200),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (checkinsResult.error) throw checkinsResult.error;
