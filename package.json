@@ -10,7 +10,7 @@
     "build": "vinext build",
     "vercel-build": "next build",
     "start": "vinext start",
-    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/prediction-model.test.mjs tests/trend.test.mjs tests/insights.test.mjs",
+    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/prediction-model.test.mjs tests/trend.test.mjs tests/insights.test.mjs tests/google-calendar.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .next-vercel",
     "db:generate": "drizzle-kit generate"
   },

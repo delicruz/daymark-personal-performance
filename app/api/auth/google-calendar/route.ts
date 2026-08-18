@@ -11,7 +11,10 @@ export function GET(request: Request) {
   const authorizeUrl = new URL("/auth/v1/authorize", supabaseUrl);
   authorizeUrl.searchParams.set("provider", "google");
   authorizeUrl.searchParams.set("redirect_to", `${appOrigin}/`);
-  authorizeUrl.searchParams.set("scopes", "https://www.googleapis.com/auth/calendar.events.readonly");
+  authorizeUrl.searchParams.set("scopes", [
+    "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  ].join(" "));
   authorizeUrl.searchParams.set("prompt", "consent");
   authorizeUrl.searchParams.set("include_granted_scopes", "true");
 

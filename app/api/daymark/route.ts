@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { googleEventIdentity, localEventTime, readableSelectedCalendarIds, type GoogleCalendarListEntry } from "../../../lib/google-calendar";
 import { buildPersonalForecast } from "../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ type AuthenticatedUser = { userId: string; email: string; displayName: string };
 type RequestContext = { user: AuthenticatedUser; supabase: SupabaseClient };
 type DatabaseRecord = Record<string, unknown>;
 type GoogleCalendarEvent = {
+  id?: string;
+  iCalUID?: string;
   summary?: string;
   status?: string;
   transparency?: string;
@@ -220,29 +223,63 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
   const now = new Date();
   const timeMin = new Date(now.getTime() - 35 * 86_400_000).toISOString();
   const timeMax = new Date(now.getTime() + 8 * 86_400_000).toISOString();
-  const events: GoogleCalendarEvent[] = [];
-  let pageToken = "";
+  const calendarEntries: GoogleCalendarListEntry[] = [];
+  let calendarPageToken = "";
   do {
     const params = new URLSearchParams({
-      timeMin,
-      timeMax,
-      timeZone,
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "2500",
-      fields: "items(summary,status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken",
+      maxResults: "250",
+      fields: "items(id,primary,selected,hidden,deleted,accessRole),nextPageToken",
     });
-    if (pageToken) params.set("pageToken", pageToken);
-    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+    if (calendarPageToken) params.set("pageToken", calendarPageToken);
+    const response = await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList?${params}`, {
       headers: { Authorization: `Bearer ${providerToken}` },
       cache: "no-store",
     });
     if (response.status === 401 || response.status === 403) throw new Error("GOOGLE_CALENDAR_PERMISSION");
     if (!response.ok) throw new Error("GOOGLE_CALENDAR_UNAVAILABLE");
-    const body = await response.json() as { items?: GoogleCalendarEvent[]; nextPageToken?: string };
-    events.push(...(body.items ?? []));
-    pageToken = body.nextPageToken ?? "";
-  } while (pageToken && events.length < 10_000);
+    const body = await response.json() as { items?: GoogleCalendarListEntry[]; nextPageToken?: string };
+    calendarEntries.push(...(body.items ?? []));
+    calendarPageToken = body.nextPageToken ?? "";
+  } while (calendarPageToken && calendarEntries.length < 1_000);
+
+  const calendarIds = readableSelectedCalendarIds(calendarEntries);
+  if (!calendarIds.length) throw new Error("GOOGLE_CALENDAR_EMPTY_LIST");
+  const events: GoogleCalendarEvent[] = [];
+  const seenEvents = new Set<string>();
+
+  async function fetchCalendarEvents(calendarId: string) {
+    let eventPageToken = "";
+    do {
+      const params = new URLSearchParams({
+        timeMin,
+        timeMax,
+        timeZone,
+        singleEvents: "true",
+        orderBy: "startTime",
+        maxResults: "2500",
+        fields: "items(id,iCalUID,summary,status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken",
+      });
+      if (eventPageToken) params.set("pageToken", eventPageToken);
+      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`, {
+        headers: { Authorization: `Bearer ${providerToken}` },
+        cache: "no-store",
+      });
+      if (response.status === 401 || response.status === 403) throw new Error("GOOGLE_CALENDAR_PERMISSION");
+      if (!response.ok) throw new Error("GOOGLE_CALENDAR_UNAVAILABLE");
+      const body = await response.json() as { items?: GoogleCalendarEvent[]; nextPageToken?: string };
+      for (const event of body.items ?? []) {
+        const identity = googleEventIdentity(calendarId, event);
+        if (seenEvents.has(identity)) continue;
+        seenEvents.add(identity);
+        events.push(event);
+      }
+      eventPageToken = body.nextPageToken ?? "";
+    } while (eventPageToken && events.length < 10_000);
+  }
+
+  for (let index = 0; index < calendarIds.length && events.length < 10_000; index += 5) {
+    await Promise.all(calendarIds.slice(index, index + 5).map(fetchCalendarEvents));
+  }
 
   const { data: profile, error: profileError } = await context.supabase
     .from("daymark_users")
@@ -260,12 +297,12 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
     const end = event.end?.dateTime;
     const declined = event.attendees?.some((attendee) => attendee.self && attendee.responseStatus === "declined");
     if (!start || !end || event.status === "cancelled" || event.transparency === "transparent" || ["workingLocation", "focusTime", "outOfOffice", "birthday"].includes(event.eventType ?? "") || declined) continue;
-    const date = start.slice(0, 10);
-    const startMatch = start.match(/T(\d{2}):(\d{2})/);
-    const endMatch = end.match(/T(\d{2}):(\d{2})/);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !startMatch || !endMatch) continue;
-    const startMinute = Number(startMatch[1]) * 60 + Number(startMatch[2]);
-    const endMinute = end.slice(0, 10) === date ? Number(endMatch[1]) * 60 + Number(endMatch[2]) : 1440;
+    const localStart = localEventTime(start, timeZone);
+    const localEnd = localEventTime(end, timeZone);
+    if (!localStart || !localEnd) continue;
+    const date = localStart.date;
+    const startMinute = localStart.minute;
+    const endMinute = localEnd.date === date ? localEnd.minute : 1440;
     const bucket = grouped.get(date) ?? { count: 0, intervals: [], classMinutes: 0, studyMinutes: 0, workMinutes: 0, personalMinutes: 0 };
     bucket.count += 1;
     bucket.intervals.push([startMinute, Math.max(startMinute, endMinute)]);
@@ -434,6 +471,7 @@ export async function POST(request: Request) {
     return jsonResponse(await userData(context));
   } catch (error) {
     if (error instanceof Error && error.message === "GOOGLE_CALENDAR_PERMISSION") return jsonResponse({ error: "Google Calendar access expired or was not granted. Please reconnect it." }, 400);
+    if (error instanceof Error && error.message === "GOOGLE_CALENDAR_EMPTY_LIST") return jsonResponse({ error: "No visible Google calendars were found. Make the timetable calendar visible in Google Calendar, then reconnect." }, 400);
     if (error instanceof Error && error.message === "INVALID_GOOGLE_TOKEN") return jsonResponse({ error: "Google Calendar could not be connected. Please try again." }, 400);
     if (error instanceof Error && error.message === "INVALID_TIME_ZONE") return jsonResponse({ error: "Your device time zone is not supported." }, 400);
     if (error instanceof Error && error.message === "GOOGLE_CALENDAR_UNAVAILABLE") return jsonResponse({ error: "Google Calendar is temporarily unavailable." }, 502);
