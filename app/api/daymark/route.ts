@@ -16,6 +16,7 @@ type AuthenticatedUser = { userId: string; email: string; displayName: string };
 type RequestContext = { user: AuthenticatedUser; supabase: SupabaseClient };
 type DatabaseRecord = Record<string, unknown>;
 type GoogleCalendarEvent = {
+  summary?: string;
   status?: string;
   transparency?: string;
   eventType?: string;
@@ -151,6 +152,13 @@ function mapCalendarSummary(row: DatabaseRecord) {
     meetingCount: Number(row.meeting_count),
     meetingMinutes: Number(row.meeting_minutes),
     focusMinutes: Number(row.focus_minutes),
+    classMinutes: Number(row.class_minutes ?? 0),
+    studyMinutes: Number(row.study_minutes ?? 0),
+    workMinutes: Number(row.work_minutes ?? 0),
+    personalMinutes: Number(row.personal_minutes ?? 0),
+    longestOpenMinutes: Number(row.longest_open_minutes ?? 0),
+    firstEventMinute: row.first_event_minute == null ? null : Number(row.first_event_minute),
+    lastEventMinute: row.last_event_minute == null ? null : Number(row.last_event_minute),
     syncedAt: String(row.synced_at),
   };
 }
@@ -174,6 +182,37 @@ function unionMinutes(intervals: [number, number][]) {
   return Math.round(total + (current ? current[1] - current[0] : 0));
 }
 
+function mergeIntervals(intervals: [number, number][]) {
+  const sorted = intervals.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const [start, end] of sorted) {
+    const previous = merged.at(-1);
+    if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+function longestOpenMinutes(intervals: [number, number][], workStart: number, workEnd: number) {
+  const busy = mergeIntervals(intervals.map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)]));
+  let cursor = workStart;
+  let longest = 0;
+  for (const [start, end] of busy) {
+    longest = Math.max(longest, start - cursor);
+    cursor = Math.max(cursor, end);
+  }
+  return Math.max(longest, workEnd - cursor, 0);
+}
+
+function calendarCategory(summary: string, attendeeCount: number) {
+  const value = summary.toLocaleLowerCase();
+  if (/\b(lecture|tutorial|seminar|class|lab|laboratory|workshop|uni|university|campus)\b/.test(value)) return "class" as const;
+  if (/\b(study|revision|revise|assignment|coursework|exam prep|reading|research)\b/.test(value)) return "study" as const;
+  if (/\b(work|shift|client|office|project|deep work|focus block)\b/.test(value)) return "work" as const;
+  if (attendeeCount > 1 || /\b(meeting|call|sync|standup|scrum|interview|catch.?up)\b/.test(value)) return "meeting" as const;
+  return "personal" as const;
+}
+
 async function syncGoogleCalendar(context: RequestContext, providerToken: string, timeZone: string) {
   if (providerToken.length < 20 || providerToken.length > 4096) throw new Error("INVALID_GOOGLE_TOKEN");
   try { new Intl.DateTimeFormat("en", { timeZone }).format(); } catch { throw new Error("INVALID_TIME_ZONE"); }
@@ -191,7 +230,7 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
       singleEvents: "true",
       orderBy: "startTime",
       maxResults: "2500",
-      fields: "items(status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken",
+      fields: "items(summary,status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken",
     });
     if (pageToken) params.set("pageToken", pageToken);
     const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
@@ -214,7 +253,7 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
   const workStart = clockMinutes(profile?.working_start, 540);
   const workEnd = clockMinutes(profile?.working_end, 1020);
   const workdayMinutes = Math.max(0, workEnd - workStart);
-  const grouped = new Map<string, { count: number; intervals: [number, number][] }>();
+  const grouped = new Map<string, { count: number; intervals: [number, number][]; classMinutes: number; studyMinutes: number; workMinutes: number; personalMinutes: number }>();
 
   for (const event of events) {
     const start = event.start?.dateTime;
@@ -227,9 +266,15 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !startMatch || !endMatch) continue;
     const startMinute = Number(startMatch[1]) * 60 + Number(startMatch[2]);
     const endMinute = end.slice(0, 10) === date ? Number(endMatch[1]) * 60 + Number(endMatch[2]) : 1440;
-    const bucket = grouped.get(date) ?? { count: 0, intervals: [] };
+    const bucket = grouped.get(date) ?? { count: 0, intervals: [], classMinutes: 0, studyMinutes: 0, workMinutes: 0, personalMinutes: 0 };
     bucket.count += 1;
     bucket.intervals.push([startMinute, Math.max(startMinute, endMinute)]);
+    const duration = Math.min(1440, Math.max(0, endMinute - startMinute));
+    const category = calendarCategory(event.summary ?? "", event.attendees?.length ?? 0);
+    if (category === "class") bucket.classMinutes += duration;
+    else if (category === "study") bucket.studyMinutes += duration;
+    else if (category === "work") bucket.workMinutes += duration;
+    else if (category === "personal") bucket.personalMinutes += duration;
     grouped.set(date, bucket);
   }
 
@@ -237,7 +282,23 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
   const summaries = [...grouped].map(([summaryDate, bucket]) => {
     const meetingMinutes = Math.min(1440, unionMinutes(bucket.intervals));
     const busyAtWork = unionMinutes(bucket.intervals.map(([start, end]) => [Math.max(start, workStart), Math.min(end, workEnd)]));
-    return { user_id: context.user.userId, summary_date: summaryDate, meeting_count: Math.min(500, bucket.count), meeting_minutes: meetingMinutes, focus_minutes: Math.max(0, workdayMinutes - busyAtWork), synced_at: syncedAt };
+    const firstEventMinute = bucket.intervals.length ? Math.min(...bucket.intervals.map(([start]) => start)) : null;
+    const lastEventMinute = bucket.intervals.length ? Math.max(...bucket.intervals.map(([, end]) => end)) : null;
+    return {
+      user_id: context.user.userId,
+      summary_date: summaryDate,
+      meeting_count: Math.min(500, bucket.count),
+      meeting_minutes: meetingMinutes,
+      focus_minutes: Math.max(0, workdayMinutes - busyAtWork),
+      class_minutes: Math.min(1440, bucket.classMinutes),
+      study_minutes: Math.min(1440, bucket.studyMinutes),
+      work_minutes: Math.min(1440, bucket.workMinutes),
+      personal_minutes: Math.min(1440, bucket.personalMinutes),
+      longest_open_minutes: Math.min(1440, longestOpenMinutes(bucket.intervals, workStart, workEnd)),
+      first_event_minute: firstEventMinute,
+      last_event_minute: lastEventMinute,
+      synced_at: syncedAt,
+    };
   });
 
   const { error: deleteError } = await context.supabase.from("daymark_calendar_summaries").delete().eq("user_id", context.user.userId).gte("summary_date", timeMin.slice(0, 10)).lte("summary_date", timeMax.slice(0, 10));
@@ -251,15 +312,18 @@ async function syncGoogleCalendar(context: RequestContext, providerToken: string
 }
 
 async function userData({ user, supabase }: RequestContext) {
-  const [profileResult, checkinsResult, prioritiesResult, calendarResult] = await Promise.all([
+  const historyStart = new Date(Date.now() - 180 * 86_400_000).toISOString().slice(0, 10);
+  const [profileResult, checkinsResult, prioritiesResult, priorityHistoryResult, calendarResult] = await Promise.all([
     supabase.from("daymark_users").select("*").eq("user_id", user.userId).maybeSingle(),
-    supabase.from("daymark_checkins").select("*").eq("user_id", user.userId).order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(60),
+    supabase.from("daymark_checkins").select("*").eq("user_id", user.userId).gte("entry_date", historyStart).order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(400),
     supabase.from("daymark_priorities").select("*").eq("user_id", user.userId).eq("priority_date", today()).order("sort_order").order("id"),
-    supabase.from("daymark_calendar_summaries").select("summary_date,meeting_count,meeting_minutes,focus_minutes,synced_at").eq("user_id", user.userId).order("summary_date", { ascending: false }).limit(60),
+    supabase.from("daymark_priorities").select("priority_date,completed").eq("user_id", user.userId).gte("priority_date", historyStart).order("priority_date", { ascending: false }).limit(1000),
+    supabase.from("daymark_calendar_summaries").select("summary_date,meeting_count,meeting_minutes,focus_minutes,class_minutes,study_minutes,work_minutes,personal_minutes,longest_open_minutes,first_event_minute,last_event_minute,synced_at").eq("user_id", user.userId).gte("summary_date", historyStart).order("summary_date", { ascending: false }).limit(200),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (checkinsResult.error) throw checkinsResult.error;
   if (prioritiesResult.error) throw prioritiesResult.error;
+  if (priorityHistoryResult.error) throw priorityHistoryResult.error;
   if (calendarResult.error) throw calendarResult.error;
 
   const profile = mapProfile(profileResult.data as DatabaseRecord | null);
@@ -273,6 +337,7 @@ async function userData({ user, supabase }: RequestContext) {
     checkins,
     latestMorning,
     priorities,
+    priorityHistory: (priorityHistoryResult.data as DatabaseRecord[]).map((row) => ({ priorityDate: String(row.priority_date), completed: Boolean(row.completed) })),
     calendarSummaries: (calendarResult.data as DatabaseRecord[]).map(mapCalendarSummary),
     forecast: prediction.forecast,
     forecastModel: prediction.model,

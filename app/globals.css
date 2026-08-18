@@ -291,10 +291,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .positive { color: #397d58 !important; }
 .negative { color: #b25941 !important; }
 .calendar-stats { display: grid; grid-template-columns: repeat(3,1fr); margin: 22px 0; }
+.calendar-stats-rich { grid-template-columns: repeat(4,1fr); margin-bottom: 13px; }
 .calendar-stats > div { display: grid; gap: 4px; border-right: 1px solid var(--line); text-align: center; }
 .calendar-stats > div:last-child { border: 0; }
 .calendar-stats strong { font-size: 15px; }
 .calendar-stats span { color: var(--muted); font-size: 8px; }
+.calendar-card-actions, .calendar-day-switch { display: flex; align-items: center; gap: 5px; }
+.calendar-day-switch { padding: 3px; border-radius: 999px; background: #eceee8; }
+.calendar-day-switch button { padding: 5px 8px !important; border-radius: 999px; font-size: 6px !important; }
+.calendar-day-switch button.selected { background: var(--ink); color: white; }
+.calendar-category-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.calendar-category-row span { padding: 5px 7px; border-radius: 999px; background: #eef0ea; color: var(--muted); font: 700 7px var(--font-geist-mono), monospace; }
 .timeline { display: grid; grid-template-columns: auto repeat(8,1fr) auto; align-items: stretch; gap: 3px; height: 42px; font-size: 7px; color: var(--muted); }
 .timeline > span { align-self: center; }
 .focus-block, .meeting-block { padding: 6px; background: var(--sage); color: #356249; display: grid; font-size: 7px; }
@@ -325,6 +332,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .calendar-insight p { display: grid; gap: 4px; margin: 0; }
 .calendar-insight small { color: var(--muted); font: 700 7px var(--font-geist-mono), monospace; letter-spacing: .08em; }
 .calendar-insight strong { font-size: 9px; line-height: 1.45; }
+.calendar-insight-primary { border-left: 3px solid var(--orange); }
+.calendar-insight-primary strong { font-size: 10px; }
+.calendar-evidence { margin: 10px 2px 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
 .app-footer { display: flex; justify-content: space-between; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; }
 
 /* Dashboard secondary pages */
@@ -369,6 +379,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .insight-stats span { color: var(--muted); font: 700 7px var(--font-geist-mono),monospace; letter-spacing: .1em; }
 .insight-stats strong { margin-top: 7px; font-size: 30px; letter-spacing: -.05em; }
 .insight-stats em { align-self: end; color: #42805c; font-size: 8px; font-style: normal; }
+.insight-overview { min-height: 180px; margin-top: 28px; padding: 32px 36px; border-radius: var(--radius-md); background: var(--ink); color: white; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 35px; }
+.insight-overview > div > span { color: var(--mint); font: 700 8px var(--font-geist-mono), monospace; letter-spacing: .12em; }
+.insight-overview h2 { max-width: 780px; margin: 13px 0 10px; font-size: clamp(24px,3.3vw,38px); line-height: 1.04; letter-spacing: -.045em; }
+.insight-overview p { margin: 0; color: rgba(255,255,255,.58); font-size: 10px; line-height: 1.55; }
+.insight-overview aside { min-width: 145px; padding-left: 30px; border-left: 1px solid rgba(255,255,255,.18); display: grid; text-align: center; }
+.insight-overview aside small { color: rgba(255,255,255,.55); font: 700 7px var(--font-geist-mono), monospace; letter-spacing: .08em; }
+.insight-overview aside strong { color: var(--mint); font-size: 52px; line-height: 1.1; }
+.insight-overview aside span { color: rgba(255,255,255,.65); font-size: 8px; }
+.insight-overview aside.muted strong { color: white; }
 .insight-columns { grid-template-columns: 1.35fr .65fr; }
 .correlation-list { margin-top: 16px; }
 .correlation-list > div { margin: 17px 0; }
@@ -379,12 +398,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .correlation-copy b { font-size: 11px; }
 .correlation-bar { height: 4px; background: #e6e8e2; }
 .correlation-bar i { display: block; height: 100%; }
+.insight-empty { min-height: 205px; display: grid; place-content: center; gap: 8px; text-align: center; }
+.insight-empty strong { font-size: 17px; }
+.insight-empty p { max-width: 480px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.insight-empty span { width: fit-content; margin: 5px auto 0; padding: 5px 8px; background: var(--sage); font: 700 7px var(--font-geist-mono), monospace; }
 .positive-bg { background: #62a779; }
 .negative-bg { background: var(--orange); }
 .experiment-card { position: relative; overflow: hidden; background: var(--sage); }
 .experiment-symbol { margin-top: 24px; color: var(--orange); font-size: 32px; }
 .experiment-card h3 { margin: 15px 0 10px; font-size: 27px; line-height: 1.05; letter-spacing: -.04em; }
 .experiment-card p { margin-bottom: 25px; }
+.experiment-card > small { display: block; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .chart-card { margin-top: 15px; }
 .card-label > div { display: flex; gap: 4px; }
 .card-label > div button { padding: 5px 8px; background: #eceee8; }
@@ -394,9 +418,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .chart-area { position: relative; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 33.33%); }
 .chart-bars { position: absolute; inset: 0 0 20px; display: flex; align-items: end; gap: 3px; }
 .chart-bars i { flex: 1; max-width: 20px; background: linear-gradient(to top, rgba(185,218,153,.38), var(--mint)); opacity: .9; }
+.chart-bars i.tracked-no-score { border: 1px solid #7e9685; background: repeating-linear-gradient(45deg, #d8dfd7 0 2px, transparent 2px 4px); }
+.chart-bars i.missing { border: 1px dashed #c4cbc3; background: transparent; opacity: .7; }
+.range-7 .chart-bars { gap: 12px; }
+.range-7 .chart-bars i { max-width: 48px; border-radius: 4px 4px 0 0; }
+.range-90 .chart-bars { gap: 1px; }
+.range-90 .chart-bars i { min-width: 1px; }
 .average-line { position: absolute; z-index: 2; left: 0; right: 0; top: 35%; border-top: 1px dashed var(--orange); }
 .average-line span { position: absolute; right: 0; top: -14px; color: var(--orange); font-size: 7px; }
 .chart-x { position: absolute; left: 0; right: 0; bottom: -17px; display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }
+.chart-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 25px 0 0 30px; color: var(--muted); font-size: 8px; }
+.chart-legend span { display: flex; align-items: center; gap: 6px; }
+.chart-legend span i { width: 10px; height: 10px; background: var(--mint); }
+.chart-legend span i.tracked { border: 1px solid #7e9685; background: repeating-linear-gradient(45deg, #d8dfd7 0 2px, transparent 2px 4px); }
+.chart-legend span i.missing { border: 1px dashed #aeb8b0; background: transparent; }
+.chart-legend p { flex-basis: 100%; margin: 0; font-size: 8px; }
 .report-cover { min-height: 270px; margin-top: 28px; padding: 38px 46px; border-radius: var(--radius-md); background: var(--ink); color: white; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 45px; }
 .report-cover > span { align-self: start; color: var(--mint); font: 700 9px var(--font-geist-mono),monospace; writing-mode: vertical-rl; }
 .report-cover p { margin: 0; color: var(--mint); font: 700 8px var(--font-geist-mono),monospace; letter-spacing: .12em; }
@@ -748,6 +784,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .forecast-hero { padding: 28px; flex-direction: column; align-items: flex-start; gap: 30px; }
   .forecast-average { border-left: 0; border-top: 1px solid rgba(255,255,255,.2); padding: 20px 0 0; text-align: left; }
   .insight-stats { grid-template-columns: 1fr 1fr; }
+  .insight-overview { grid-template-columns: 1fr; padding: 28px; }
+  .insight-overview aside { padding: 20px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.18); text-align: left; }
+  .insight-overview aside strong { font-size: 38px; }
+  .chart-card .card-label { align-items: flex-start; gap: 12px; flex-direction: column; }
+  .line-chart { height: 220px; }
   .report-cover { grid-template-columns: 1fr; padding: 28px; gap: 25px; }
   .report-cover > span { writing-mode: initial; }
   .report-score { border-left: 0; border-top: 1px solid rgba(255,255,255,.2); padding: 20px 0 0; text-align: left; }
@@ -774,6 +815,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .recommendation.wide button { display: none; }
   .calendar-stats { grid-template-columns: 1fr; gap: 12px; }
   .calendar-stats > div { border-right: 0; }
+  .calendar-stats-rich { grid-template-columns: 1fr 1fr; }
+  .calendar-card > .card-label { align-items: flex-start; gap: 10px; flex-direction: column; }
+  .calendar-card-actions { width: 100%; justify-content: space-between; }
+  .chart-legend { margin-left: 0; }
   .insight-stats { grid-template-columns: 1fr; }
   .settings-section { padding: 20px; }
   .profile-form { grid-template-columns: 1fr; }
