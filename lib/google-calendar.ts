@@ -56,3 +56,12 @@ export function googleEventIdentity(calendarId: string, event: TimedGoogleEvent)
   const start = event.start?.dateTime ?? "";
   return event.iCalUID && start ? `${event.iCalUID}|${start}` : `${calendarId}|${event.id ?? ""}|${start}`;
 }
+
+export function calendarCategory(summary: string, attendeeCount: number) {
+  const value = summary.toLocaleLowerCase();
+  if (/\b(lecture|tutorial|seminar|class|lab|laboratory|workshop|uni|university|campus)\b/.test(value)) return "class" as const;
+  if (/\b(study|revision|revise|assignment|coursework|exam prep|reading|research)\b/.test(value)) return "study" as const;
+  if (/\b(work|shift|roster|on duty|clock.?in|client|office|project|deep work|focus block|barista|bartender|cashier|retail|hospitality|restaurant|cafe|café|waitstaff|waiter|waitress|server|chef|cook|kitchen|front of house|back of house|receptionist|warehouse|delivery|support worker|care worker|nurse)\b/.test(value)) return "work" as const;
+  if (attendeeCount > 1 || /\b(meeting|call|sync|standup|scrum|interview|catch.?up)\b/.test(value)) return "meeting" as const;
+  return "personal" as const;
+}

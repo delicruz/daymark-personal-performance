@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { googleEventIdentity, localEventTime, readableSelectedCalendarIds } from "../lib/google-calendar.ts";
+import { calendarCategory, googleEventIdentity, localEventTime, readableSelectedCalendarIds } from "../lib/google-calendar.ts";
 
 test("includes the primary and visible selected secondary calendars", () => {
   const ids = readableSelectedCalendarIds([
@@ -22,4 +22,13 @@ test("places an Adelaide morning class on the correct local day", () => {
 test("deduplicates copied calendar events by iCal UID and occurrence time", () => {
   const event = { id: "copy-1", iCalUID: "class@example.edu", start: { dateTime: "2026-08-18T08:10:00+09:30" } };
   assert.equal(googleEventIdentity("primary", event), googleEventIdentity("timetable", { ...event, id: "copy-2" }));
+});
+
+test("classifies a rostered barista booking as work", () => {
+  assert.equal(calendarCategory("[Argo On The Parade] Barista", 0), "work");
+  assert.equal(calendarCategory("Cafe roster", 0), "work");
+});
+
+test("keeps university seminars classified as class before generic work terms", () => {
+  assert.equal(calendarCategory("Professional Communication and Teamwork (INFO 2032) - Seminar", 0), "class");
 });

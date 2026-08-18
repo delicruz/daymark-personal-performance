@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { googleEventIdentity, localEventTime, readableSelectedCalendarIds, type GoogleCalendarListEntry } from "../../../lib/google-calendar";
+import { calendarCategory, googleEventIdentity, localEventTime, readableSelectedCalendarIds, type GoogleCalendarListEntry } from "../../../lib/google-calendar";
 import { buildPersonalForecast } from "../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
@@ -205,15 +205,6 @@ function longestOpenMinutes(intervals: [number, number][], workStart: number, wo
     cursor = Math.max(cursor, end);
   }
   return Math.max(longest, workEnd - cursor, 0);
-}
-
-function calendarCategory(summary: string, attendeeCount: number) {
-  const value = summary.toLocaleLowerCase();
-  if (/\b(lecture|tutorial|seminar|class|lab|laboratory|workshop|uni|university|campus)\b/.test(value)) return "class" as const;
-  if (/\b(study|revision|revise|assignment|coursework|exam prep|reading|research)\b/.test(value)) return "study" as const;
-  if (/\b(work|shift|client|office|project|deep work|focus block)\b/.test(value)) return "work" as const;
-  if (attendeeCount > 1 || /\b(meeting|call|sync|standup|scrum|interview|catch.?up)\b/.test(value)) return "meeting" as const;
-  return "personal" as const;
 }
 
 async function syncGoogleCalendar(context: RequestContext, providerToken: string, timeZone: string) {
