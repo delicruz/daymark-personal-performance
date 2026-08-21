@@ -89,7 +89,11 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(route, /private, no-store/);
   assert.match(coach, /Do not calculate or alter the forecast/);
   assert.match(coach, /Do not claim that any signal causes performance/);
+  assert.match(coach, /buildRecentPerformanceSummary/);
   assert.match(page, /AI DAILY COACH/);
-  assert.match(page, /Calendar titles, descriptions and locations are excluded/);
+  assert.match(page, /AUTOMATIC DAILY BRIEFING/);
+  assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);
+  assert.doesNotMatch(page, /ai-coach-request|WHAT WOULD IMPROVE TODAY/);
+  assert.match(page, /Calendar titles, descriptions, people and locations are excluded/);
   assert.doesNotMatch(route, /service_role|execute_sql|unsafe|raw\s*\(/i);
 });

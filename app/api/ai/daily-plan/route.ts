@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai";
 import { APICallError, generateText, Output } from "ai";
 import { z } from "zod";
-import { buildDailyCoachPrompt, type DailyCoachContext } from "../../../../lib/ai-daily-coach";
+import { buildDailyCoachPrompt, buildRecentPerformanceSummary, type DailyCoachContext } from "../../../../lib/ai-daily-coach";
 import { buildPersonalForecast, type PredictionRecord } from "../../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,7 @@ const recentRequests = new Map<string, number[]>();
 
 const requestSchema = z.object({
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  request: z.string().trim().min(3).max(500),
-});
+}).strict();
 
 const planSchema = z.object({
   headline: z.string().min(1).max(120),
@@ -85,7 +84,9 @@ async function safetyIdentifier(userId: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function mapCheckin(row: Record<string, unknown>): PredictionRecord {
+type CoachCheckin = PredictionRecord & { focusedMinutes: number | null };
+
+function mapCheckin(row: Record<string, unknown>): CoachCheckin {
   return {
     entryDate: String(row.entry_date),
     entryType: row.entry_type === "evening" ? "evening" : "morning",
@@ -95,6 +96,7 @@ function mapCheckin(row: Record<string, unknown>): PredictionRecord {
     workload: row.workload == null ? null : String(row.workload),
     plannedFocusMinutes: row.planned_focus_minutes == null ? null : Number(row.planned_focus_minutes),
     productivity: row.productivity == null ? null : Number(row.productivity),
+    focusedMinutes: row.focused_minutes == null ? null : Number(row.focused_minutes),
   };
 }
 
@@ -112,7 +114,7 @@ export async function POST(request: Request) {
     let decoded: unknown;
     try { decoded = JSON.parse(raw); } catch { return jsonResponse({ error: "Request must be valid JSON." }, 400); }
     const parsed = requestSchema.safeParse(decoded);
-    if (!parsed.success) return jsonResponse({ error: "Describe what you want to adjust in 3–500 characters." }, 400);
+    if (!parsed.success) return jsonResponse({ error: "Provide a valid local date for today’s automatic plan." }, 400);
     const apiKey = process.env.OPENAI_API_KEY?.trim() || process.env.OPEN_API_KEY?.trim();
     if (!apiKey) return jsonResponse({ error: "AI planning is not configured yet." }, 503);
     const openai = createOpenAI({ apiKey });
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
     const historyStart = new Date(Date.now() - 180 * 86_400_000).toISOString().slice(0, 10);
     const [profileResult, checkinsResult, prioritiesResult, calendarResult] = await Promise.all([
       auth.supabase.from("daymark_users").select("goal").eq("user_id", auth.userId).maybeSingle(),
-      auth.supabase.from("daymark_checkins").select("entry_date,entry_type,energy,stress,sleep_minutes,workload,planned_focus_minutes,productivity").eq("user_id", auth.userId).gte("entry_date", historyStart).order("entry_date", { ascending: false }).limit(400),
+      auth.supabase.from("daymark_checkins").select("entry_date,entry_type,energy,stress,sleep_minutes,workload,planned_focus_minutes,productivity,focused_minutes").eq("user_id", auth.userId).gte("entry_date", historyStart).order("entry_date", { ascending: false }).limit(400),
       auth.supabase.from("daymark_priorities").select("title,completed").eq("user_id", auth.userId).eq("priority_date", parsed.data.localDate).order("sort_order").limit(10),
       auth.supabase.from("daymark_calendar_summaries").select("meeting_minutes,focus_minutes,class_minutes,study_minutes,work_minutes,longest_open_minutes,longest_open_start_minute,longest_open_end_minute").eq("user_id", auth.userId).eq("summary_date", parsed.data.localDate).maybeSingle(),
     ]);
@@ -138,7 +140,6 @@ export async function POST(request: Request) {
     const calendar = calendarResult.data;
     const context: DailyCoachContext = {
       localDate: parsed.data.localDate,
-      request: parsed.data.request,
       goal: profileResult.data?.goal ?? "Improve daily focus",
       forecast: prediction.forecast,
       rangeLow: prediction.model.rangeLow,
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
       plannedFocusMinutes: morning?.plannedFocusMinutes ?? null,
       workload: morning?.workload ?? null,
       priority,
+      recentPerformance: buildRecentPerformanceSummary(checkins, parsed.data.localDate),
       calendar: calendar ? {
         classMinutes: Number(calendar.class_minutes ?? 0),
         studyMinutes: Number(calendar.study_minutes ?? 0),
@@ -164,7 +166,7 @@ export async function POST(request: Request) {
 
     const result = await generateText({
       model: openai.responses(MODEL),
-      instructions: "You are Daymark's private daily planning coach. Produce evidence-grounded planning suggestions, not medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
+      instructions: "You are Daymark's private automatic daily planning coach. Proactively produce evidence-grounded suggestions from the supplied schedule and recorded performance signals, without asking the user to write a prompt. Do not provide medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
       output: Output.object({ name: "DaymarkDailyPlan", schema: planSchema }),
       prompt: buildDailyCoachPrompt(context),
       providerOptions: {

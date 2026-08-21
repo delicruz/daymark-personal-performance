@@ -249,13 +249,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ai-coach-copy p { max-width: 470px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
 .ai-context-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 17px; }
 .ai-context-pills span { padding: 6px 8px; border: 1px solid rgba(24, 56, 47, .09); border-radius: 999px; background: rgba(255, 255, 255, .55); color: #466457; font: 700 7px var(--font-geist-mono), monospace; }
-.ai-coach-form { padding: 17px; border: 1px solid rgba(24, 56, 47, .11); border-radius: var(--radius-sm); background: rgba(255, 255, 255, .76); box-shadow: 0 14px 38px rgba(24, 56, 47, .06); }
-.ai-coach-form > label { display: block; margin-bottom: 8px; color: #526a5e; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
-.ai-coach-form textarea { width: 100%; min-height: 84px; resize: vertical; padding: 12px 13px; border: 1px solid rgba(24, 56, 47, .14); border-radius: 9px; outline: 0; background: #fbfcf8; color: var(--ink); font: 500 11px/1.5 var(--sans); }
-.ai-coach-form textarea:focus { border-color: #557968; box-shadow: 0 0 0 3px rgba(85, 121, 104, .11); }
-.ai-coach-presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 12px; }
-.ai-coach-presets button { padding: 6px 8px; border: 1px solid rgba(24, 56, 47, .11); border-radius: 999px; background: transparent; color: #526a5e; font-size: 7px; cursor: pointer; }
-.ai-coach-presets button:hover { background: var(--sage); color: var(--ink); }
+.ai-coach-auto-panel { padding: 17px; border: 1px solid rgba(24, 56, 47, .11); border-radius: var(--radius-sm); background: rgba(255, 255, 255, .76); box-shadow: 0 14px 38px rgba(24, 56, 47, .06); }
+.ai-auto-label { display: block; margin-bottom: 9px; color: #526a5e; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
+.ai-auto-signals { display: grid; margin-bottom: 12px; border: 1px solid rgba(24, 56, 47, .09); border-radius: 9px; background: #fbfcf8; }
+.ai-auto-signals > div { display: grid; grid-template-columns: 84px 1fr; gap: 12px; align-items: center; min-height: 42px; padding: 9px 11px; }
+.ai-auto-signals > div + div { border-top: 1px solid rgba(24, 56, 47, .08); }
+.ai-auto-signals span { color: #7b8c84; font: 700 7px var(--font-geist-mono), monospace; letter-spacing: .07em; }
+.ai-auto-signals strong { color: var(--ink); font-size: 9px; font-weight: 570; line-height: 1.35; }
+.ai-coach-auto-panel > small { display: block; margin-top: 9px; color: var(--muted); font-size: 7px; line-height: 1.45; }
 .ai-coach-submit { width: 100%; justify-content: space-between; min-height: 42px; }
 .ai-coach-submit:disabled { cursor: not-allowed; opacity: .55; }
 .ai-coach-error { margin: 9px 0 0; color: #a14732; font-size: 9px; }
@@ -865,6 +866,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .recommendation.wide button { margin-left: 0; display: inline-flex; align-items: center; gap: 5px; padding: 7px 0; }
   .calendar-stats { grid-template-columns: 1fr; gap: 12px; }
   .ai-coach-card { padding: 20px; }
+  .ai-auto-signals > div { grid-template-columns: 1fr; gap: 3px; }
   .ai-plan-actions { grid-template-columns: 1fr; }
   .calendar-stats > div { border-right: 0; }
   .calendar-stats-rich { grid-template-columns: 1fr 1fr; }

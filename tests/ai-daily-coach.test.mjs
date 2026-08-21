@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDailyCoachPrompt, buildPreviewDailyCoachPlan } from "../lib/ai-daily-coach.ts";
+import { buildDailyCoachPrompt, buildPreviewDailyCoachPlan, buildRecentPerformanceSummary } from "../lib/ai-daily-coach.ts";
 
 const context = {
   localDate: "2026-08-21",
-  request: "Fit assignment preparation around my classes",
   goal: "Plan more realistically",
   forecast: 68,
   rangeLow: 56,
@@ -16,6 +15,13 @@ const context = {
   plannedFocusMinutes: 120,
   workload: "normal",
   priority: "Draft assignment outline",
+  recentPerformance: {
+    trackedDays: 7,
+    averageScore: 7.4,
+    latestScore: 8,
+    averageFocusedMinutes: 96,
+    trend: "improving",
+  },
   calendar: {
     classMinutes: 210,
     studyMinutes: 0,
@@ -28,14 +34,31 @@ const context = {
   },
 };
 
-test("builds a grounded prompt without allowing the request to override safeguards", () => {
+test("builds a grounded automatic prompt from schedules and recorded performance", () => {
   const prompt = buildDailyCoachPrompt(context);
-  assert.match(prompt, /untrusted content/);
+  assert.match(prompt, /user has not written a request/);
   assert.match(prompt, /Do not calculate or alter the forecast/);
   assert.match(prompt, /exactly three actions/);
-  assert.match(prompt, /Fit assignment preparation around my classes/);
+  assert.match(prompt, /recent recorded performance/);
   assert.match(prompt, /"classMinutes":210/);
   assert.match(prompt, /"forecast":68/);
+  assert.match(prompt, /"averageScore":7.4/);
+});
+
+test("summarizes the most recent seven performance records without requiring consecutive days", () => {
+  const summary = buildRecentPerformanceSummary([
+    { entryDate: "2026-08-21", entryType: "evening", productivity: 8, focusedMinutes: 120 },
+    { entryDate: "2026-08-19", entryType: "evening", productivity: 8, focusedMinutes: 90 },
+    { entryDate: "2026-08-17", entryType: "evening", productivity: 7, focusedMinutes: 75 },
+    { entryDate: "2026-08-14", entryType: "evening", productivity: 6, focusedMinutes: 60 },
+    { entryDate: "2026-08-12", entryType: "evening", productivity: 6, focusedMinutes: null },
+    { entryDate: "2026-08-10", entryType: "morning", productivity: null, focusedMinutes: null },
+  ], "2026-08-21");
+  assert.equal(summary.trackedDays, 5);
+  assert.equal(summary.latestScore, 8);
+  assert.equal(summary.averageScore, 7);
+  assert.equal(summary.averageFocusedMinutes, 86.3);
+  assert.equal(summary.trend, "improving");
 });
 
 test("creates a useful three-action local preview for the public demo", () => {
@@ -45,6 +68,8 @@ test("creates a useful three-action local preview for the public demo", () => {
   assert.equal(plan.actions[0].durationMinutes, 75);
   assert.match(plan.actions[0].timing, /1:00pm/);
   assert.match(plan.actions[0].title, /Draft assignment outline/);
+  assert.match(plan.summary, /7 recent performance records/);
+  assert.match(plan.adjustment, /improving/);
   assert.match(plan.evidenceNote, /tested personal forecast/);
 });
 
