@@ -6,6 +6,7 @@ import { daymarkFetch, getSupabaseBrowserClient, isSupabaseConfigured } from "./
 import { buildCalendarInsight, buildTrackedDayTrend } from "../lib/trend";
 import { buildInsightsSnapshot } from "../lib/insights";
 import { buildDailyRecommendation } from "../lib/recommendation";
+import { buildPreviewDailyCoachPlan, type DailyCoachContext, type DailyCoachPlan } from "../lib/ai-daily-coach";
 
 type View = "today" | "forecast" | "insights" | "report" | "settings";
 type Modal = "morning" | "evening" | "onboarding" | null;
@@ -195,6 +196,7 @@ const faqs = [
   { category: "Data", question: "Can I export or permanently delete my information?", answer: "Yes. Data & Settings lets you download your profile, check-ins, priorities, outcomes and calendar summaries as JSON. You can also permanently delete the Daymark records attached to your account." },
   { category: "Accounts", question: "How do I sign in?", answer: "Use email and password, a secure passwordless email link, or continue with Google. New email accounts must be confirmed before access. Daymark uses Supabase Auth to verify your session before private information is loaded or saved." },
   { category: "Forecasts", question: "How is the model tested?", answer: "Daymark uses ridge regression and rolling-origin backtesting: each historical day is predicted only from days that came before it. The app reports mean absolute error and an estimated 80% range when enough paired outcomes exist." },
+  { category: "AI planning", question: "How does the AI Daily Coach use my data?", answer: "The coach runs only when you ask it to create a plan. It receives your request plus summarized signals such as today’s check-in, forecast range, first unfinished priority and calendar category totals. Calendar titles, descriptions, people and locations are excluded. Its suggestions never retrain or change Daymark’s tested prediction model." },
 ] as const;
 
 function Logo({ dark = false }: { dark?: boolean }) {
@@ -436,7 +438,95 @@ function formatClock(minutes: number | null) {
   return new Intl.DateTimeFormat("en-AU", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).format(new Date(Date.UTC(2026, 0, 1, hour, minute)));
 }
 
-function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConnect, onOpenInsights }: { setModal: (modal: Modal) => void; data: DaymarkData; onAddPriority: (title: string) => Promise<boolean>; onTogglePriority: (id: number, completed: boolean) => Promise<void>; onCalendarConnect: () => Promise<void>; onOpenInsights: () => void }) {
+function AiDailyCoach({ data, authenticated, todayKey }: { data: DaymarkData; authenticated: boolean; todayKey: string }) {
+  const [request, setRequest] = useState("");
+  const [plan, setPlan] = useState<DailyCoachPlan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const morning = data.latestMorning;
+  const calendar = data.calendarSummaries.find((summary) => summary.summaryDate === todayKey) ?? null;
+  const priority = data.priorities.find((item) => !item.completed)?.title ?? null;
+  const presets = ["Protect deep work", "Balance classes and study", "Recover without losing momentum"];
+
+  const previewContext = (): DailyCoachContext => ({
+    localDate: todayKey,
+    request,
+    goal: data.profile?.goal ?? "Improve daily focus",
+    forecast: data.forecast,
+    rangeLow: data.forecastModel.rangeLow,
+    rangeHigh: data.forecastModel.rangeHigh,
+    modelStatus: data.forecastModel.status,
+    energy: morning?.energy ?? null,
+    stress: morning?.stress ?? null,
+    sleepMinutes: morning?.sleepMinutes ?? null,
+    plannedFocusMinutes: morning?.plannedFocusMinutes ?? null,
+    workload: morning?.workload ?? null,
+    priority,
+    calendar: calendar ? {
+      classMinutes: calendar.classMinutes,
+      studyMinutes: calendar.studyMinutes,
+      workMinutes: calendar.workMinutes,
+      scheduledMinutes: calendar.meetingMinutes,
+      openMinutes: calendar.focusMinutes,
+      longestOpenMinutes: calendar.longestOpenMinutes,
+      longestOpenStartMinute: calendar.longestOpenStartMinute,
+      longestOpenEndMinute: calendar.longestOpenEndMinute,
+    } : null,
+  });
+
+  const createPlan = async (event: FormEvent) => {
+    event.preventDefault();
+    const cleanRequest = request.trim();
+    if (cleanRequest.length < 3 || loading) return;
+    setError("");
+    setLoading(true);
+    try {
+      if (!authenticated) {
+        setPlan(buildPreviewDailyCoachPlan({ ...previewContext(), request: cleanRequest }));
+        return;
+      }
+      const response = await daymarkFetch("/api/ai/daily-plan", { method: "POST", body: JSON.stringify({ request: cleanRequest, localDate: todayKey }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "The AI coach could not create a plan.");
+      setPlan(payload as DailyCoachPlan);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The AI coach could not create a plan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="ai-coach-card" data-tour="ai-coach">
+      <div className="card-label"><span>✦ AI DAILY COACH</span><b>{authenticated ? "PRIVATE · ON REQUEST" : "DEMO PREVIEW"}</b></div>
+      <div className="ai-coach-layout">
+        <div className="ai-coach-copy">
+          <span className="ai-coach-kicker">CUSTOMIZE TODAY</span>
+          <h2>Tell Daymark what you need<br /><em>to adjust or achieve.</em></h2>
+          <p>The coach combines your request with today’s capacity, check-in, priority and calendar totals. It suggests a plan—it never changes your tested forecast.</p>
+          <div className="ai-context-pills"><span>{data.forecast}/100 outlook</span><span>{morning?.energy ? `Energy ${morning.energy}/5` : "No energy check-in"}</span><span>{calendar ? `${formatMinutes(calendar.focusMinutes)} open` : "No calendar summary"}</span></div>
+        </div>
+        <form className="ai-coach-form" onSubmit={createPlan}>
+          <label htmlFor="ai-coach-request">WHAT WOULD IMPROVE TODAY?</label>
+          <textarea id="ai-coach-request" value={request} onChange={(event) => setRequest(event.target.value)} maxLength={500} placeholder="For example: I have two classes today and need to prepare for an assignment without exhausting myself." />
+          <div className="ai-coach-presets">{presets.map((preset) => <button type="button" key={preset} onClick={() => setRequest(preset)}>{preset}</button>)}</div>
+          <button className="dark-button ai-coach-submit" type="submit" disabled={loading || request.trim().length < 3}>{loading ? "Creating your plan…" : "Create my plan"}<span>→</span></button>
+          {!authenticated && <small>Demo creates a local preview. Sign in for an AI-generated plan based on your private records.</small>}
+          {error && <p className="ai-coach-error" role="alert">{error}</p>}
+        </form>
+      </div>
+      {plan && <div className="ai-plan" aria-live="polite">
+        <div className="ai-plan-heading"><span>{plan.source === "ai" ? "AI-GENERATED PLAN" : "DEMO PLAN PREVIEW"}</span><h3>{plan.headline}</h3><p>{plan.summary}</p></div>
+        <div className="ai-plan-actions">{plan.actions.map((action, index) => <article key={`${action.title}-${index}`}><b>0{index + 1}</b><div><span>{action.effort} · {action.durationMinutes} min</span><h4>{action.title}</h4><strong>{action.timing}</strong><p>{action.reason}</p></div></article>)}</div>
+        <div className="ai-plan-adjustment"><span>↗</span><p><small>ADJUSTMENT</small><strong>{plan.adjustment}</strong></p></div>
+        <p className="ai-plan-evidence">{plan.evidenceNote}</p>
+      </div>}
+      <p className="ai-coach-privacy">Only summarized Daymark signals and the text you enter are sent for generation. Calendar titles, descriptions and locations are excluded.</p>
+    </section>
+  );
+}
+
+function Today({ setModal, data, authenticated, onAddPriority, onTogglePriority, onCalendarConnect, onOpenInsights }: { setModal: (modal: Modal) => void; data: DaymarkData; authenticated: boolean; onAddPriority: (title: string) => Promise<boolean>; onTogglePriority: (id: number, completed: boolean) => Promise<void>; onCalendarConnect: () => Promise<void>; onOpenInsights: () => void }) {
   const [addingPriority, setAddingPriority] = useState(false);
   const [priorityTitle, setPriorityTitle] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
@@ -521,6 +611,8 @@ function Today({ setModal, data, onAddPriority, onTogglePriority, onCalendarConn
           <div className="sleep-line"><span>☾</span><div><small>LAST NIGHT’S SLEEP</small><strong>{sleepHours} {morning && <em>{(morning.sleepMinutes ?? 0) >= 420 ? "Good" : "Low"}</em>}</strong></div></div>
           <button className="text-action" onClick={() => setModal("morning")}>{morning ? "Edit" : "Start"} check-in <span>→</span></button>
         </section>
+
+        <AiDailyCoach data={data} authenticated={authenticated} todayKey={todayKey} />
 
         <section className="factors-card" data-tour="factors">
           <div className="card-label">MODEL CONTRIBUTIONS <button>Ridge regression ↗</button></div>
@@ -614,7 +706,7 @@ function Settings({ setModal, data, onCalendarConnect, onCalendarDisconnect, onP
     {activeSection === "model" && <section className="settings-section"><div><h2>Prediction model</h2><p>Daymark uses personalized ridge regression only after {data.forecastModel.minimumDays} matched outcomes. Before that, the displayed number is your observed baseline—not a weighted prediction.</p></div>{[["Method",data.forecastModel.method],["Outcome",data.forecastModel.outcome],["Matched days",`${data.forecastModel.pairedDays} / ${data.forecastModel.minimumDays}`],["Forward-test MAE",data.forecastModel.mae == null ? "Not available yet" : `${data.forecastModel.mae} points`]].map(([label,value])=><div className="weight-row" key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>}
     {activeSection === "integrations" && <section className="settings-section"><div><h2>Calendar connection</h2><p>Daymark reads timed events from your visible selected Google calendars. Titles are used only long enough to classify time as class, study, work, meeting or personal. It stores daily category totals, scheduled minutes and open focus time—not titles, descriptions, attendees, locations or Google access tokens.</p></div><div className="integration-row"><span className="calendar-logo">31</span><div><strong>Google Calendar</strong><small>{connected ? `${data.calendarSummaries.length} private daily summaries saved · sync again after this upgrade` : "Not connected"}</small></div><button className={connected ? "connected-button" : "outline-button"} onClick={()=>void (connected ? onCalendarDisconnect() : onCalendarConnect())}>{connected ? "Disconnect" : "Connect"}</button></div></section>}
     {activeSection === "reminders" && <section className="settings-section"><div><h2>Daily reminders</h2><p>Choose when this device should prompt you to complete your morning check-in and evening review.</p></div><div className="reminder-list"><label><span><strong>Morning check-in</strong><small>Start the day with your sleep, energy and focus plan.</small></span><input type="time" value={morningTime} onChange={(event) => setMorningTime(event.target.value)} disabled={!morningReminder} /><input type="checkbox" checked={morningReminder} onChange={(event) => setMorningReminder(event.target.checked)} aria-label="Enable morning check-in reminder" /></label><label><span><strong>Evening review</strong><small>Record your outcome while the day is still fresh.</small></span><input type="time" value={eveningTime} onChange={(event) => setEveningTime(event.target.value)} disabled={!eveningReminder} /><input type="checkbox" checked={eveningReminder} onChange={(event) => setEveningReminder(event.target.checked)} aria-label="Enable evening review reminder" /></label></div><button className="dark-button settings-save" type="button" onClick={saveReminders}>{remindersSaved ? "✓ Saved on this device" : "Save reminders"}</button></section>}
-    {activeSection === "privacy" && <><section className="settings-section"><div><h2>Privacy & consent</h2><p>See exactly how each type of information is used. Daymark never turns personal forecasts into employment assessments.</p></div><div className="consent-summary"><div><span><strong>Private account storage</strong><small>Required to save your profile, check-ins and priorities.</small></span><b>ACTIVE</b></div><div><span><strong>Personal prediction model</strong><small>Uses only your own matched check-ins and evening outcomes.</small></span><b>PERSONAL ONLY</b></div><div><span><strong>Calendar availability</strong><small>{connected ? "You have allowed availability timing to be used." : "No calendar information is connected or used."}</small></span><b className={connected ? "" : "muted-status"}>{connected ? "ALLOWED" : "OFF"}</b></div></div></section><div className="privacy-note"><span>◇</span><p><strong>Private by default.</strong> Every database query is scoped to your signed-in user ID.</p></div></>}
+    {activeSection === "privacy" && <><section className="settings-section"><div><h2>Privacy & consent</h2><p>See exactly how each type of information is used. Daymark never turns personal forecasts into employment assessments.</p></div><div className="consent-summary"><div><span><strong>Private account storage</strong><small>Required to save your profile, check-ins and priorities.</small></span><b>ACTIVE</b></div><div><span><strong>Personal prediction model</strong><small>Uses only your own matched check-ins and evening outcomes.</small></span><b>PERSONAL ONLY</b></div><div><span><strong>Calendar availability</strong><small>{connected ? "You have allowed availability timing to be used." : "No calendar information is connected or used."}</small></span><b className={connected ? "" : "muted-status"}>{connected ? "ALLOWED" : "OFF"}</b></div><div><span><strong>AI daily planning</strong><small>Runs only when you request a plan and does not alter your forecast. Calendar event text is excluded.</small></span><b>ON REQUEST</b></div></div></section><div className="privacy-note"><span>◇</span><p><strong>Private by default.</strong> Every database query is scoped to your signed-in user ID.</p></div></>}
     {activeSection === "export" && <section className="settings-section privacy-control"><div><h2>Export & deletion</h2><p>Download a complete copy of your information or permanently remove your Daymark records.</p></div><div className="control-row"><span>↧</span><div><strong>Export my data</strong><small>Download your real check-ins, outcomes, profile and priorities as JSON.</small></div><button onClick={exportData}>Download</button></div><div className="control-row danger"><span>×</span><div><strong>Delete my account data</strong><small>This permanently removes all Daymark records associated with this account.</small></div><button onClick={()=>void onDelete()}>Delete data</button></div></section>}
   </div></div></>;
 }
@@ -691,7 +783,7 @@ function Dashboard({ exit, initialOnboarding = false, authenticated = false, cal
   const deleteData = async () => { if (!window.confirm("Permanently delete all of your Daymark check-ins, priorities and settings?")) return; const response = await daymarkFetch("/api/daymark", { method: "DELETE" }); if (!response.ok) { const payload = await response.json(); setSyncMessage(payload.error ?? "Your data could not be deleted."); return; } setData({ ...demoData, user: data.user, profile: { ...demoData.profile!, displayName: data.user.displayName, email: data.user.email } }); setSyncMessage("Your Daymark data has been deleted"); };
   const handleExit = async () => { if (authenticated && isSupabaseConfigured) await getSupabaseBrowserClient().auth.signOut(); exit(); };
 
-  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={handleExit} startTour={startTour} data={data} /><div className="app-main"><div className="sync-banner" role="status"><span className={syncMessage.startsWith("Saved") ? "online" : ""} />{syncMessage}</div><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} data={data} onAddPriority={addPriority} onTogglePriority={togglePriority} onCalendarConnect={connectCalendar} onOpenInsights={() => changeView("insights")} />}{view === "forecast" && <Forecast setModal={setModal} data={data} />}{view === "insights" && <Insights setModal={setModal} data={data} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} data={data} onCalendarConnect={connectCalendar} onCalendarDisconnect={disconnectCalendar} onProfileUpdate={async (displayName, goal) => { await updateData({ action: "profile.update", displayName, goal }); }} onDelete={deleteData} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={saveCheckin} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
+  return <main className="app-shell"><Sidebar view={view} setView={changeView} exit={handleExit} startTour={startTour} data={data} /><div className="app-main"><div className="sync-banner" role="status"><span className={syncMessage.startsWith("Saved") ? "online" : ""} />{syncMessage}</div><div className={`view-stage ${transitionState}`} aria-live="polite">{view === "today" && <Today setModal={setModal} data={data} authenticated={authenticated} onAddPriority={addPriority} onTogglePriority={togglePriority} onCalendarConnect={connectCalendar} onOpenInsights={() => changeView("insights")} />}{view === "forecast" && <Forecast setModal={setModal} data={data} />}{view === "insights" && <Insights setModal={setModal} data={data} />}{view === "report" && <Report setModal={setModal} />}{view === "settings" && <Settings setModal={setModal} data={data} onCalendarConnect={connectCalendar} onCalendarDisconnect={disconnectCalendar} onProfileUpdate={async (displayName, goal) => { await updateData({ action: "profile.update", displayName, goal }); }} onDelete={deleteData} />}</div><footer className="app-footer"><span>Daymark predictions support personal reflection. They are not medical or employment advice.</span><span>Privacy · Help</span></footer></div>{modal && <CheckInModal modal={modal} close={() => setModal(null)} onSaved={saveCheckin} />}{tourOpen && !modal && <GuidedTour onClose={() => setTourOpen(false)} />}</main>;
 }
 
 export default function Home() {

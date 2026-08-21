@@ -70,3 +70,21 @@ test("keeps persistent records scoped to an authenticated and rate-limited user"
   assert.match(model, /for \(let index = MIN_PERSONALIZED_DAYS; index < samples\.length/);
   assert.doesNotMatch(route, /64 \+ energy \* 4/);
 });
+
+test("keeps AI planning authenticated, rate limited and separate from the prediction model", async () => {
+  const [route, coach, page] = await Promise.all([
+    readFile(new URL("../app/api/ai/daily-plan/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai-daily-coach.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
+  assert.match(route, /daymark_consume_rate_limit/);
+  assert.match(route, /Output\.object/);
+  assert.match(route, /openai\/gpt-5\.6-luna/);
+  assert.match(route, /private, no-store/);
+  assert.match(coach, /Do not calculate or alter the forecast/);
+  assert.match(coach, /Do not claim that any signal causes performance/);
+  assert.match(page, /AI DAILY COACH/);
+  assert.match(page, /Calendar titles, descriptions and locations are excluded/);
+  assert.doesNotMatch(route, /service_role|execute_sql|unsafe|raw\s*\(/i);
+});

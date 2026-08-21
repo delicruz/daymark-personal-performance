@@ -237,6 +237,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-grid > section, .page-card, .insight-stats article, .week-grid article, .report-metrics article, .settings-section { box-shadow: 0 7px 24px rgba(24,56,47,.025); }
 .outlook-card { grid-column: 1; padding: 22px 24px; }
 .checkin-card { grid-column: 2; padding: 22px; }
+.ai-coach-card { position: relative; grid-column: 1 / -1; overflow: hidden; padding: 24px; background: linear-gradient(135deg, #f7f7f0 0%, #edf3e8 58%, #e6efdc 100%) !important; }
+.ai-coach-card::after { content: ""; position: absolute; right: -70px; top: -115px; width: 260px; height: 260px; border: 60px solid rgba(185, 218, 153, .26); border-radius: 50%; pointer-events: none; }
+.ai-coach-card .card-label { position: relative; z-index: 1; }
+.ai-coach-card .card-label > b { color: #4f725f; font-size: 7px; }
+.ai-coach-layout { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(220px, .8fr) minmax(360px, 1.2fr); align-items: start; gap: 28px; margin-top: 19px; }
+.ai-coach-copy { padding: 9px 12px 0 0; }
+.ai-coach-kicker { color: #4f725f; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .12em; }
+.ai-coach-copy h2 { margin: 10px 0 11px; max-width: 440px; font-size: clamp(27px, 3vw, 42px); font-weight: 560; line-height: .98; letter-spacing: -.052em; }
+.ai-coach-copy h2 em { color: var(--orange); font-family: inherit; font-style: normal; font-weight: 430; }
+.ai-coach-copy p { max-width: 470px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.ai-context-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 17px; }
+.ai-context-pills span { padding: 6px 8px; border: 1px solid rgba(24, 56, 47, .09); border-radius: 999px; background: rgba(255, 255, 255, .55); color: #466457; font: 700 7px var(--font-geist-mono), monospace; }
+.ai-coach-form { padding: 17px; border: 1px solid rgba(24, 56, 47, .11); border-radius: var(--radius-sm); background: rgba(255, 255, 255, .76); box-shadow: 0 14px 38px rgba(24, 56, 47, .06); }
+.ai-coach-form > label { display: block; margin-bottom: 8px; color: #526a5e; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
+.ai-coach-form textarea { width: 100%; min-height: 84px; resize: vertical; padding: 12px 13px; border: 1px solid rgba(24, 56, 47, .14); border-radius: 9px; outline: 0; background: #fbfcf8; color: var(--ink); font: 500 11px/1.5 var(--sans); }
+.ai-coach-form textarea:focus { border-color: #557968; box-shadow: 0 0 0 3px rgba(85, 121, 104, .11); }
+.ai-coach-presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 12px; }
+.ai-coach-presets button { padding: 6px 8px; border: 1px solid rgba(24, 56, 47, .11); border-radius: 999px; background: transparent; color: #526a5e; font-size: 7px; cursor: pointer; }
+.ai-coach-presets button:hover { background: var(--sage); color: var(--ink); }
+.ai-coach-submit { width: 100%; justify-content: space-between; min-height: 42px; }
+.ai-coach-submit:disabled { cursor: not-allowed; opacity: .55; }
+.ai-coach-error { margin: 9px 0 0; color: #a14732; font-size: 9px; }
+.ai-plan { position: relative; z-index: 1; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(24, 56, 47, .12); }
+.ai-plan-heading { display: grid; grid-template-columns: auto minmax(220px, .85fr) minmax(260px, 1.15fr); gap: 18px; align-items: center; }
+.ai-plan-heading > span { color: #4f725f; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
+.ai-plan-heading h3 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
+.ai-plan-heading p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.ai-plan-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 13px; }
+.ai-plan-actions article { min-height: 118px; padding: 13px; border: 1px solid rgba(24, 56, 47, .1); border-radius: var(--radius-sm); background: rgba(255, 255, 255, .65); }
+.ai-plan-actions article > b { display: inline-grid; place-content: center; width: 23px; height: 23px; margin-bottom: 11px; border-radius: 50%; background: var(--ink); color: white; font: 750 8px var(--font-geist-mono), monospace; }
+.ai-plan-actions article > div > span { color: #a85a40; font: 700 7px var(--font-geist-mono), monospace; text-transform: uppercase; }
+.ai-plan-actions h4 { margin: 5px 0 6px; font-size: 11px; letter-spacing: -.015em; }
+.ai-plan-actions strong { display: block; margin-bottom: 6px; font-size: 8px; }
+.ai-plan-actions p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.ai-plan-adjustment { display: flex; gap: 10px; align-items: start; margin: 10px 0 0; padding: 11px 13px; border-left: 3px solid var(--orange); background: rgba(255, 255, 255, .5); }
+.ai-plan-adjustment > span { color: var(--orange); }
+.ai-plan-adjustment p { display: grid; gap: 3px; margin: 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.ai-plan-adjustment small { color: #a85a40; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .09em; }
+.ai-plan-adjustment strong { color: var(--ink); font-weight: 560; }
+.ai-plan-evidence { margin: 9px 0 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.ai-coach-privacy { position: relative; z-index: 1; margin: 14px 0 0; color: #65786f; font: 650 7px/1.5 var(--font-geist-mono), monospace; }
 .factors-card { grid-column: 1; padding: 22px 24px; }
 .calendar-card { grid-column: 2; padding: 22px; }
 .priorities-card { grid-column: 1; padding: 22px 24px; }
@@ -783,6 +824,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .header-actions { width: 100%; overflow-x: auto; }
   .dashboard-grid, .two-column, .insight-columns { grid-template-columns: 1fr; }
   .dashboard-grid > section { grid-column: 1; }
+  .ai-coach-layout { grid-template-columns: 1fr; }
+  .ai-coach-copy { padding-right: 0; }
+  .ai-plan-heading { align-items: flex-start; flex-direction: column; }
   .outlook-main { grid-template-columns: 1fr; }
   .large-score-ring { width: 110px; height: 110px; }
   .factor-list { grid-template-columns: 1fr; }
@@ -820,6 +864,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .recommendation.wide { align-items: flex-start; }
   .recommendation.wide button { margin-left: 0; display: inline-flex; align-items: center; gap: 5px; padding: 7px 0; }
   .calendar-stats { grid-template-columns: 1fr; gap: 12px; }
+  .ai-coach-card { padding: 20px; }
+  .ai-plan-actions { grid-template-columns: 1fr; }
   .calendar-stats > div { border-right: 0; }
   .calendar-stats-rich { grid-template-columns: 1fr 1fr; }
   .calendar-card > .card-label { align-items: flex-start; gap: 10px; flex-direction: column; }
