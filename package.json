@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.45",
     "@supabase/supabase-js": "^2.112.3",
     "ai": "^7.0.73",
     "drizzle-orm": "0.45.2",

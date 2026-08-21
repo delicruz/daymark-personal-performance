@@ -46,6 +46,20 @@ In the Supabase dashboard, add the local and production origins to
 Authentication → URL Configuration. Enable Google under Authentication →
 Providers and add the OAuth client credentials before using Google sign-in.
 
+## AI Daily Coach
+
+The signed-in Today page can generate a private, three-step plan from the
+user's request and summarized Daymark signals. Add `OPENAI_API_KEY` as a
+server-only environment variable. `OPENAI_MODEL` is optional and defaults to
+`gpt-5.6-luna`. The endpoint uses the OpenAI Responses API with structured
+output, disables response storage, excludes raw calendar event text, and sends
+a one-way identifier instead of a user ID. A dedicated Supabase limiter allows
+five AI plans per signed-in user per minute.
+
+Never prefix `OPENAI_API_KEY` with `NEXT_PUBLIC_`; doing so would expose the
+secret to browser code. After changing either AI variable in Vercel, redeploy
+the affected environment.
+
 ## Useful Commands
 
 - `npm run dev`: start local development

@@ -78,9 +78,14 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
-  assert.match(route, /daymark_consume_rate_limit/);
+  assert.match(route, /daymark_consume_ai_rate_limit/);
   assert.match(route, /Output\.object/);
-  assert.match(route, /openai\/gpt-5\.6-luna/);
+  assert.match(route, /openai\.responses\(MODEL\)/);
+  assert.match(route, /OPENAI_API_KEY/);
+  assert.match(route, /OPEN_API_KEY/);
+  assert.match(route, /createOpenAI\(\{ apiKey \}\)/);
+  assert.match(route, /store: false/);
+  assert.match(route, /safetyIdentifier/);
   assert.match(route, /private, no-store/);
   assert.match(coach, /Do not calculate or alter the forecast/);
   assert.match(coach, /Do not claim that any signal causes performance/);

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { generateText, Output } from "ai";
+import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai";
+import { APICallError, generateText, Output } from "ai";
 import { z } from "zod";
 import { buildDailyCoachPrompt, type DailyCoachContext } from "../../../../lib/ai-daily-coach";
 import { buildPersonalForecast, type PredictionRecord } from "../../../../lib/prediction";
@@ -7,7 +8,7 @@ import { buildPersonalForecast, type PredictionRecord } from "../../../../lib/pr
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const MODEL = "openai/gpt-5.6-luna";
+const MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5.6-luna";
 const MAX_REQUEST_BYTES = 2_048;
 const AI_REQUESTS_PER_MINUTE = 5;
 const recentRequests = new Map<string, number[]>();
@@ -72,10 +73,16 @@ function allowLocalBurst(userId: string) {
 }
 
 async function consumePersistentLimit(supabase: SupabaseClient) {
-  const { data, error } = await supabase.rpc("daymark_consume_rate_limit");
+  const { data, error } = await supabase.rpc("daymark_consume_ai_rate_limit");
   if (error) return { available: false, allowed: false, retryAfter: 10 };
   const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean; retry_after_seconds?: number } | null;
   return { available: true, allowed: Boolean(row?.allowed), retryAfter: Math.max(1, Number(row?.retry_after_seconds ?? 60)) };
+}
+
+async function safetyIdentifier(userId: string) {
+  const bytes = new TextEncoder().encode(`daymark:${userId}`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function mapCheckin(row: Record<string, unknown>): PredictionRecord {
@@ -99,9 +106,6 @@ export async function POST(request: Request) {
 
     const auth = await authenticatedClient(request);
     if (!auth) return jsonResponse({ error: "Sign in to create a private AI plan." }, 401);
-    const persistentLimit = await consumePersistentLimit(auth.supabase);
-    if (!persistentLimit.available) return jsonResponse({ error: "Planning is temporarily unavailable." }, 503, { "Retry-After": String(persistentLimit.retryAfter) });
-    if (!persistentLimit.allowed || !allowLocalBurst(auth.userId)) return jsonResponse({ error: "You have created several plans. Wait a minute before trying again." }, 429, { "Retry-After": String(persistentLimit.retryAfter) });
 
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) return jsonResponse({ error: "Request is too large." }, 413);
@@ -109,6 +113,13 @@ export async function POST(request: Request) {
     try { decoded = JSON.parse(raw); } catch { return jsonResponse({ error: "Request must be valid JSON." }, 400); }
     const parsed = requestSchema.safeParse(decoded);
     if (!parsed.success) return jsonResponse({ error: "Describe what you want to adjust in 3–500 characters." }, 400);
+    const apiKey = process.env.OPENAI_API_KEY?.trim() || process.env.OPEN_API_KEY?.trim();
+    if (!apiKey) return jsonResponse({ error: "AI planning is not configured yet." }, 503);
+    const openai = createOpenAI({ apiKey });
+
+    const persistentLimit = await consumePersistentLimit(auth.supabase);
+    if (!persistentLimit.available) return jsonResponse({ error: "Planning is temporarily unavailable." }, 503, { "Retry-After": String(persistentLimit.retryAfter) });
+    if (!persistentLimit.allowed || !allowLocalBurst(auth.userId)) return jsonResponse({ error: "You have created several plans. Wait a minute before trying again." }, 429, { "Retry-After": String(persistentLimit.retryAfter) });
 
     const historyStart = new Date(Date.now() - 180 * 86_400_000).toISOString().slice(0, 10);
     const [profileResult, checkinsResult, prioritiesResult, calendarResult] = await Promise.all([
@@ -152,16 +163,27 @@ export async function POST(request: Request) {
     };
 
     const result = await generateText({
-      model: MODEL,
+      model: openai.responses(MODEL),
       instructions: "You are Daymark's private daily planning coach. Produce evidence-grounded planning suggestions, not medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
       output: Output.object({ name: "DaymarkDailyPlan", schema: planSchema }),
       prompt: buildDailyCoachPrompt(context),
+      providerOptions: {
+        openai: {
+          store: false,
+          reasoningEffort: "low",
+          textVerbosity: "low",
+          safetyIdentifier: await safetyIdentifier(auth.userId),
+        } satisfies OpenAILanguageModelResponsesOptions,
+      },
       abortSignal: AbortSignal.timeout(20_000),
     });
 
     return jsonResponse({ ...result.output, source: "ai", generatedAt: new Date().toISOString() });
   } catch (error) {
     console.error("[daymark-ai] daily plan failed", error instanceof Error ? error.message : "Unknown error");
+    if (APICallError.isInstance(error) && error.statusCode === 429) {
+      return jsonResponse({ error: "The AI service is busy or its usage limit has been reached. Please try again shortly." }, 429, { "Retry-After": "30" });
+    }
     return jsonResponse({ error: "The AI coach could not create a plan right now. Please try again shortly." }, 503, { "Retry-After": "10" });
   }
 }
