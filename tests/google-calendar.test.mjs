@@ -33,6 +33,12 @@ test("keeps university seminars classified as class before generic work terms", 
   assert.equal(calendarCategory("Professional Communication and Teamwork (INFO 2032) - Seminar", 0), "class");
 });
 
+test("classifies university practicals and tutorials as class time", () => {
+  assert.equal(calendarCategory("Cloud and Concurrent Programming (COMP 3011) - Practical", 0), "class");
+  assert.equal(calendarCategory("Machine Learning (ARTI 2001) - Tutorial", 0), "class");
+  assert.equal(calendarCategory("Database Systems (COMP 2034)", 0), "class");
+});
+
 test("finds the exact longest opening before a rostered work shift", () => {
   assert.deepEqual(longestOpenWindow([[11 * 60 + 45, 16 * 60 + 30]], 9 * 60, 17 * 60), {
     start: 9 * 60,
