@@ -464,17 +464,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .line-chart { height: 250px; margin-top: 25px; display: grid; grid-template-columns: 30px 1fr; }
 .chart-y { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 22px; color: var(--muted); font-size: 7px; }
 .chart-area { position: relative; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 33.33%); }
-.chart-bars { position: absolute; inset: 0 0 20px; display: flex; align-items: end; gap: 3px; }
-.chart-bars i { flex: 1; max-width: 20px; background: linear-gradient(to top, rgba(185,218,153,.38), var(--mint)); opacity: .9; }
+.chart-bars { position: absolute; inset: 0 0 20px; display: grid; align-items: end; gap: 3px; }
+.chart-bars i { width: 100%; max-width: 20px; justify-self: center; background: linear-gradient(to top, rgba(185,218,153,.38), var(--mint)); opacity: .9; }
 .chart-bars i.tracked-no-score { border: 1px solid #7e9685; background: repeating-linear-gradient(45deg, #d8dfd7 0 2px, transparent 2px 4px); }
 .chart-bars i.missing { border: 1px dashed #c4cbc3; background: transparent; opacity: .7; }
-.range-7 .chart-bars { gap: 12px; }
-.range-7 .chart-bars i { max-width: 48px; border-radius: 4px 4px 0 0; }
-.range-90 .chart-bars { gap: 1px; }
+.range-7 .chart-bars { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+.range-7 .chart-bars i { max-width: 72px; border-radius: 4px 4px 0 0; }
+.range-30 .chart-bars { grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.range-90 .chart-bars { grid-template-columns: repeat(90, minmax(0, 1fr)); gap: 1px; }
 .range-90 .chart-bars i { min-width: 1px; }
 .average-line { position: absolute; z-index: 2; left: 0; right: 0; top: 35%; border-top: 1px dashed var(--orange); }
 .average-line span { position: absolute; right: 0; top: -14px; color: var(--orange); font-size: 7px; }
 .chart-x { position: absolute; left: 0; right: 0; bottom: -17px; display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }
+.range-7 .chart-x { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.range-7 .chart-x span { text-align: center; }
 .chart-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 25px 0 0 30px; color: var(--muted); font-size: 8px; }
 .chart-legend span { display: flex; align-items: center; gap: 6px; }
 .chart-legend span i { width: 10px; height: 10px; background: var(--mint); }
