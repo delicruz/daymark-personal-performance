@@ -51,8 +51,6 @@ export type DailyCoachAction = {
   durationMinutes: number;
   effort: "light" | "moderate" | "deep";
   reason: string;
-  steps: string[];
-  finishLine: string;
   minimumVersion: string;
 };
 
@@ -123,9 +121,9 @@ function formatClock(minutes: number | null) {
 export function buildDailyCoachPrompt(context: DailyCoachContext) {
   return [
     "# Goal\nCreate a practical automatic plan that helps one person make better daily choices from their Daymark evidence. The user has not written a request, so proactively select the highest-value adjustments.",
-    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action names when to do it, a realistic duration, the specific observed signal behind it, two or three ordered steps, an observable finish line, and a minimum version for a disrupted day. Include one small daily experiment with a behavior and an evening-review measure.",
+    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action uses a direct title that says what to do, names when to do it, gives a realistic duration, explains the strongest observed signal in one short sentence, and includes one short fallback for a disrupted day. Include one small daily experiment with a behavior and an evening-review measure.",
     "# Evidence rules\nUse only the supplied schedule summary, current check-in, saved priority and goal, recent performance trend, and recent sleep/energy/stress/focus averages. Compare today with the person's own recent averages when both exist. When history is insufficient, frame the action as a test and explain what to track. Treat associations as clues, never causes.",
-    "# Action quality bar\nWrite each title as a direct instruction the user can start without interpretation. Start every step with an action verb and name the object, tool, amount or time where the evidence supports it. Make finishLine visibly checkable. If no priority is saved, help the user choose one; never call it their 'most important outcome' and never invent the task. Avoid abstract phrases such as 'move it forward', 'protect a buffer', 'close the loop' or 'review and rebalance' unless the same sentence says exactly what to do.",
+    "# Action quality bar\nKeep each card concise enough to scan in a few seconds. Write the title as the complete instruction and start it with an action verb. If no priority is saved, tell the user to choose one; never call it their 'most important outcome' and never invent the task. Avoid abstract phrases such as 'move it forward', 'protect a buffer', 'close the loop' or 'review and rebalance'. Do not add checklists, multiple substeps or a separate completion criterion.",
     "# Planning rules\nRespect available minutes and the supplied clock window. Prefer exact, low-friction behaviors over broad advice. If capacity is constrained, reduce scope, protect transitions and add recovery rather than demanding more output. Avoid repeating the same idea across actions.",
     "# Safety\nDo not calculate or alter the forecast. Do not invent events, deadlines, diagnoses, medical guidance, employment advice or unavailable time windows. Sleep, stress and energy suggestions must remain general wellbeing and planning guidance. Do not prescribe supplements, treatment, strict diets or exercise intensity.",
     "# Calibration\nThe evidence note distinguishes a personal-model forecast from a baseline or calibrating estimate and names important missing evidence. Keep the tone warm, direct and non-judgmental.",
@@ -177,13 +175,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         reason: constrained
           ? `Today’s ${context.forecast}/100 outlook calls for a smaller, clearly defined result.`
           : `Your longest open block is ${openLength} minutes, so this fits without overlapping a calendar commitment.`,
-        steps: [
-          `Write one sentence describing what must be finished for ${priority} in this block.`,
-          `Silence notifications and work only on ${priority} for ${Math.max(15, focusMinutes - 5)} minutes.`,
-          "Use the final 5 minutes to save the work and write the next action.",
-        ],
-        finishLine: `One visible part of ${priority} is completed and its next action is written.`,
-        minimumVersion: `Complete one ${Math.max(10, Math.round(focusMinutes / 3))}-minute start and write the next step.`,
+        minimumVersion: `Start with ${Math.max(10, Math.round(focusMinutes / 3))} minutes and write the next step.`,
       } : {
         category: "focus",
         title: "Choose one task and define today’s finish line",
@@ -191,13 +183,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         durationMinutes: 10,
         effort: "light",
         reason: "No priority is saved, so Daymark needs one concrete task before it can recommend what to work on.",
-        steps: [
-          "List the three tasks currently competing for your attention.",
-          "Choose the task with the nearest deadline or greatest consequence.",
-          "Save it as your priority and write one sentence describing what ‘done today’ means.",
-        ],
-        finishLine: "One priority is saved in Daymark with a specific result for today.",
-        minimumVersion: "Save one task and the smallest useful result you can finish today.",
+        minimumVersion: "Save the task with the nearest deadline.",
       },
       !savedPriority ? {
         category: "focus",
@@ -208,13 +194,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         reason: constrained
           ? `Today’s ${context.forecast}/100 outlook supports a shorter single-task block instead of a long work session.`
           : `Your longest open block is ${openLength} minutes, leaving enough room for one uninterrupted start.`,
-        steps: [
-          "Open only the file, page or tool needed for the chosen task.",
-          `Work on the written finish line for ${Math.max(15, focusMinutes - 5)} minutes with notifications silenced.`,
-          "Use the final 5 minutes to save the work and write the next action.",
-        ],
-        finishLine: "The written result is completed, or the next unfinished action is clearly recorded.",
-        minimumVersion: "Work for 15 minutes on the first unfinished part and record the next action.",
+        minimumVersion: "Work for 15 minutes and record the next action.",
       } : {
         category: recoveryNeeded ? "recovery" : "schedule",
         title: recoveryNeeded ? "Take a 15-minute screen-free reset" : "Write the next action before switching tasks",
@@ -226,21 +206,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
           : scheduleHeavy
             ? "A busy scheduled day leaves less room for task switching and recovery."
             : "Writing the next action before switching tasks makes progress easier to resume.",
-        steps: recoveryNeeded
-          ? [
-              "Leave the desk and put the phone out of reach.",
-              "Drink water or walk gently for 10 minutes without starting another task.",
-              "Return and write the single next action before opening anything else.",
-            ]
-          : [
-              "Stop when the focus timer ends.",
-              "Write the exact next action in one sentence.",
-              "Close the task before opening the next one.",
-            ],
-        finishLine: recoveryNeeded
-          ? "You return after 15 minutes with one next action written."
-          : "The current task is closed and one next action is written.",
-        minimumVersion: "Step away for 5 minutes, then write the next action before switching tasks.",
+        minimumVersion: "Pause for 5 minutes and write the next action.",
       },
       {
         category: "routine",
@@ -251,13 +217,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         reason: context.recentPerformance.trackedDays < 4
           ? "A short outcome record will make future advice more personal instead of relying on a starting baseline."
           : "Focused minutes and an outcome score let Daymark compare today’s plan with your recent pattern.",
-        steps: [
-          "Enter today’s focused minutes.",
-          "Score today’s productivity from 1 to 10.",
-          "Write the single biggest help or interruption.",
-        ],
-        finishLine: "Focused minutes, productivity score and one observation are saved.",
-        minimumVersion: "Record the outcome score and one sentence about what helped or interrupted the plan.",
+        minimumVersion: "Save the outcome score and one short note.",
       },
     ],
     adjustment: sleepBelowUsual

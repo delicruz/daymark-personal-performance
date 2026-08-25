@@ -22,14 +22,12 @@ const planSchema = z.object({
   summary: z.string().min(1).max(320),
   actions: z.array(z.object({
     category: z.enum(["focus", "schedule", "recovery", "routine"]),
-    title: z.string().min(1).max(100),
+    title: z.string().min(1).max(90),
     timing: z.string().min(1).max(80),
     durationMinutes: z.number().int().min(5).max(180),
     effort: z.enum(["light", "moderate", "deep"]),
-    reason: z.string().min(1).max(260),
-    steps: z.array(z.string().min(1).max(160)).min(2).max(3),
-    finishLine: z.string().min(1).max(180),
-    minimumVersion: z.string().min(1).max(180),
+    reason: z.string().min(1).max(180),
+    minimumVersion: z.string().min(1).max(130),
   })).length(3),
   adjustment: z.string().min(1).max(260),
   dailyExperiment: z.object({

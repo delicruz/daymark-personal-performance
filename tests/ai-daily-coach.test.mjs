@@ -44,8 +44,8 @@ test("builds a grounded automatic prompt from schedules and recorded performance
   assert.match(prompt, /Do not calculate or alter the forecast/);
   assert.match(prompt, /three distinct actions/);
   assert.match(prompt, /recent performance trend/);
-  assert.match(prompt, /minimum version/);
-  assert.match(prompt, /observable finish line/);
+  assert.match(prompt, /short fallback/);
+  assert.match(prompt, /scan in a few seconds/);
   assert.match(prompt, /never call it their 'most important outcome'/);
   assert.match(prompt, /daily experiment/);
   assert.match(prompt, /"classMinutes":210/);
@@ -84,9 +84,7 @@ test("creates a useful three-action local preview for the public demo", () => {
   assert.match(plan.actions[0].title, /Draft assignment outline/);
   assert.match(plan.summary, /7 recent performance records/);
   assert.match(plan.adjustment, /improving/);
-  assert.match(plan.actions[0].minimumVersion, /minute start/);
-  assert.equal(plan.actions[0].steps.length, 3);
-  assert.match(plan.actions[0].finishLine, /completed/);
+  assert.match(plan.actions[0].minimumVersion, /Start with 25 minutes/);
   assert.equal(plan.dailyExperiment.title, "Test one protected block");
   assert.match(plan.evidenceNote, /tested personal forecast/);
 });
@@ -154,10 +152,7 @@ test("turns a missing priority into an executable choice instead of vague advice
   const plan = buildPreviewDailyCoachPlan({ ...context, priority: null });
   assert.match(plan.actions[0].title, /choose one task/i);
   assert.equal(plan.actions[0].durationMinutes, 10);
-  assert.match(plan.actions[0].steps[1], /nearest deadline or greatest consequence/i);
-  assert.match(plan.actions[0].finishLine, /priority is saved/i);
   assert.match(plan.actions[1].title, /start the chosen task/i);
-  assert.ok(plan.actions.every((action) => action.steps.length >= 2 && action.steps.length <= 3));
-  assert.ok(plan.actions.every((action) => action.finishLine.length > 0));
+  assert.ok(plan.actions.every((action) => action.minimumVersion.length <= 130));
   assert.doesNotMatch(JSON.stringify(plan.actions), /most important outcome|move .* forward|protect a transition buffer|close the loop/i);
 });
