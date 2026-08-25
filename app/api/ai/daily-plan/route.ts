@@ -1,8 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai";
-import { APICallError, generateText, Output } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
-import { buildDailyCoachPrompt, buildRecentPerformanceSummary, type DailyCoachContext } from "../../../../lib/ai-daily-coach";
+import { buildDailyCoachPrompt, buildLocalDailyCoachPlan, buildRecentPerformanceSummary, type DailyCoachContext } from "../../../../lib/ai-daily-coach";
 import { buildPersonalForecast, type PredictionRecord } from "../../../../lib/prediction";
 
 export const dynamic = "force-dynamic";
@@ -116,8 +116,6 @@ export async function POST(request: Request) {
     const parsed = requestSchema.safeParse(decoded);
     if (!parsed.success) return jsonResponse({ error: "Provide a valid local date for today’s automatic plan." }, 400);
     const apiKey = process.env.OPENAI_API_KEY?.trim() || process.env.OPEN_API_KEY?.trim();
-    if (!apiKey) return jsonResponse({ error: "AI planning is not configured yet." }, 503);
-    const openai = createOpenAI({ apiKey });
 
     const persistentLimit = await consumePersistentLimit(auth.supabase);
     if (!persistentLimit.available) return jsonResponse({ error: "Planning is temporarily unavailable." }, 503, { "Retry-After": String(persistentLimit.retryAfter) });
@@ -164,28 +162,37 @@ export async function POST(request: Request) {
       } : null,
     };
 
-    const result = await generateText({
-      model: openai.responses(MODEL),
-      instructions: "You are Daymark's private automatic daily planning coach. Proactively produce evidence-grounded suggestions from the supplied schedule and recorded performance signals, without asking the user to write a prompt. Do not provide medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
-      output: Output.object({ name: "DaymarkDailyPlan", schema: planSchema }),
-      prompt: buildDailyCoachPrompt(context),
-      providerOptions: {
-        openai: {
-          store: false,
-          reasoningEffort: "low",
-          textVerbosity: "low",
-          safetyIdentifier: await safetyIdentifier(auth.userId),
-        } satisfies OpenAILanguageModelResponsesOptions,
-      },
-      abortSignal: AbortSignal.timeout(20_000),
-    });
+    if (!apiKey) {
+      console.warn("[daymark-ai] OPENAI_API_KEY is unavailable; serving a local coach plan");
+      return jsonResponse(buildLocalDailyCoachPlan(context, "fallback"), 200, { "X-Daymark-Coach-Mode": "local-fallback" });
+    }
 
-    return jsonResponse({ ...result.output, source: "ai", generatedAt: new Date().toISOString() });
+    try {
+      const openai = createOpenAI({ apiKey });
+      const result = await generateText({
+        model: openai.responses(MODEL),
+        instructions: "You are Daymark's private automatic daily planning coach. Proactively produce evidence-grounded suggestions from the supplied schedule and recorded performance signals, without asking the user to write a prompt. Do not provide medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
+        output: Output.object({ name: "DaymarkDailyPlan", schema: planSchema }),
+        prompt: buildDailyCoachPrompt(context),
+        maxRetries: 0,
+        providerOptions: {
+          openai: {
+            store: false,
+            reasoningEffort: "low",
+            textVerbosity: "low",
+            safetyIdentifier: await safetyIdentifier(auth.userId),
+          } satisfies OpenAILanguageModelResponsesOptions,
+        },
+        abortSignal: AbortSignal.timeout(20_000),
+      });
+
+      return jsonResponse({ ...result.output, source: "ai", generatedAt: new Date().toISOString() }, 200, { "X-Daymark-Coach-Mode": "openai" });
+    } catch (error) {
+      console.error("[daymark-ai] OpenAI generation failed; serving a local coach plan", error instanceof Error ? error.message : "Unknown error");
+      return jsonResponse(buildLocalDailyCoachPlan(context, "fallback"), 200, { "X-Daymark-Coach-Mode": "local-fallback" });
+    }
   } catch (error) {
     console.error("[daymark-ai] daily plan failed", error instanceof Error ? error.message : "Unknown error");
-    if (APICallError.isInstance(error) && error.statusCode === 429) {
-      return jsonResponse({ error: "The AI service is busy or its usage limit has been reached. Please try again shortly." }, 429, { "Retry-After": "30" });
-    }
     return jsonResponse({ error: "The AI coach could not create a plan right now. Please try again shortly." }, 503, { "Retry-After": "10" });
   }
 }

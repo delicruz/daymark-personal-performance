@@ -549,7 +549,7 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
         </div>
       </div>
       {plan && <div className="ai-plan" aria-live="polite">
-        <div className="ai-plan-heading"><span>{plan.source === "ai" ? "AI-GENERATED PLAN" : "DEMO PLAN PREVIEW"}</span><h3>{plan.headline}</h3><p>{plan.summary}</p></div>
+        <div className="ai-plan-heading"><span>{plan.source === "ai" ? "AI-GENERATED PLAN" : plan.source === "fallback" ? "LOCAL COACH PLAN" : "DEMO PLAN PREVIEW"}</span><h3>{plan.headline}</h3><p>{plan.summary}</p></div>
         <div className="ai-plan-actions">{plan.actions.map((action, index) => <article key={`${action.title}-${index}`}><b>0{index + 1}</b><div><span>{action.effort} · {action.durationMinutes} min</span><h4>{action.title}</h4><strong>{action.timing}</strong><p>{action.reason}</p></div></article>)}</div>
         <div className="ai-plan-adjustment"><span>↗</span><p><small>ADJUSTMENT</small><strong>{plan.adjustment}</strong></p></div>
         <p className="ai-plan-evidence">{plan.evidenceNote}</p>

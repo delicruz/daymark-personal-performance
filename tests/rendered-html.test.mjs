@@ -84,6 +84,8 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(route, /OPENAI_API_KEY/);
   assert.match(route, /OPEN_API_KEY/);
   assert.match(route, /createOpenAI\(\{ apiKey \}\)/);
+  assert.match(route, /maxRetries: 0/);
+  assert.match(route, /buildLocalDailyCoachPlan\(context, "fallback"\)/);
   assert.match(route, /store: false/);
   assert.match(route, /safetyIdentifier/);
   assert.match(route, /private, no-store/);
@@ -92,6 +94,7 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(coach, /buildRecentPerformanceSummary/);
   assert.match(page, /AI DAILY COACH/);
   assert.match(page, /AUTOMATIC DAILY BRIEFING/);
+  assert.match(page, /LOCAL COACH PLAN/);
   assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);
   assert.doesNotMatch(page, /ai-coach-request|WHAT WOULD IMPROVE TODAY/);
   assert.match(page, /Calendar titles, descriptions, people and locations are excluded/);

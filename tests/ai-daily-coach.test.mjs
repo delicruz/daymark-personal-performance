@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDailyCoachPrompt, buildPreviewDailyCoachPlan, buildRecentPerformanceSummary } from "../lib/ai-daily-coach.ts";
+import { buildDailyCoachPrompt, buildLocalDailyCoachPlan, buildPreviewDailyCoachPlan, buildRecentPerformanceSummary } from "../lib/ai-daily-coach.ts";
 
 const context = {
   localDate: "2026-08-21",
@@ -79,4 +79,13 @@ test("reduces scope when the user reports constrained capacity", () => {
   assert.equal(plan.actions[0].effort, "moderate");
   assert.match(plan.headline, /lighter/);
   assert.match(plan.actions[2].title, /recovery/i);
+});
+
+test("creates a transparent personalized fallback when OpenAI is unavailable", () => {
+  const plan = buildLocalDailyCoachPlan(context, "fallback");
+  assert.equal(plan.source, "fallback");
+  assert.equal(plan.actions.length, 3);
+  assert.match(plan.summary, /local plan/);
+  assert.match(plan.actions[0].title, /Draft assignment outline/);
+  assert.match(plan.evidenceNote, /calculated this plan locally/);
 });

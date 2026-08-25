@@ -51,7 +51,7 @@ export type DailyCoachPlan = {
   actions: DailyCoachAction[];
   adjustment: string;
   evidenceNote: string;
-  source: "ai" | "preview";
+  source: "ai" | "preview" | "fallback";
   generatedAt: string;
 };
 
@@ -102,7 +102,7 @@ export function buildDailyCoachPrompt(context: DailyCoachContext) {
   ].join("\n");
 }
 
-export function buildPreviewDailyCoachPlan(context: DailyCoachContext): DailyCoachPlan {
+export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "preview" | "fallback" = "preview"): DailyCoachPlan {
   const constrained = (context.energy != null && context.energy <= 2) || (context.stress != null && context.stress >= 4) || context.forecast < 55;
   const openStart = context.calendar?.longestOpenStartMinute ?? null;
   const openLength = context.calendar?.longestOpenMinutes ?? context.plannedFocusMinutes ?? 60;
@@ -112,7 +112,7 @@ export function buildPreviewDailyCoachPlan(context: DailyCoachContext): DailyCoa
 
   return {
     headline: constrained ? "Protect quality by making today deliberately lighter." : "Turn today’s strongest opening into one clear win.",
-    summary: `This automatic preview combines today’s schedule, check-in, ${context.forecast}/100 outlook and ${context.recentPerformance.trackedDays || "no"} recent performance record${context.recentPerformance.trackedDays === 1 ? "" : "s"}.`,
+    summary: `This ${source === "fallback" ? "local plan" : "automatic preview"} combines today’s schedule, check-in, ${context.forecast}/100 outlook and ${context.recentPerformance.trackedDays || "no"} recent performance record${context.recentPerformance.trackedDays === 1 ? "" : "s"}.`,
     actions: [
       {
         title: `Move ${priority} forward`,
@@ -141,8 +141,12 @@ export function buildPreviewDailyCoachPlan(context: DailyCoachContext): DailyCoa
       : context.recentPerformance.trend === "improving"
         ? "Recent recorded performance is improving; protect the routine and calendar space that make steady work possible."
         : "Choose the smallest version of the plan that still feels meaningful, then adjust after the next commitment.",
-    evidenceNote: context.modelStatus === "personalized" ? "Uses your tested personal forecast as context; suggestions remain planning guidance, not a prediction." : "Uses a baseline estimate as context; personal modelling has not yet collected enough matched outcomes.",
-    source: "preview",
+    evidenceNote: `${context.modelStatus === "personalized" ? "Uses your tested personal forecast as context; suggestions remain planning guidance, not a prediction." : "Uses a baseline estimate as context; personal modelling has not yet collected enough matched outcomes."}${source === "fallback" ? " OpenAI generation is temporarily unavailable, so Daymark calculated this plan locally from the same summarized signals." : ""}`,
+    source,
     generatedAt: new Date().toISOString(),
   };
+}
+
+export function buildPreviewDailyCoachPlan(context: DailyCoachContext): DailyCoachPlan {
+  return buildLocalDailyCoachPlan(context, "preview");
 }
