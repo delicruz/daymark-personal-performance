@@ -45,6 +45,8 @@ test("builds a grounded automatic prompt from schedules and recorded performance
   assert.match(prompt, /three distinct actions/);
   assert.match(prompt, /recent performance trend/);
   assert.match(prompt, /minimum version/);
+  assert.match(prompt, /observable finish line/);
+  assert.match(prompt, /never call it their 'most important outcome'/);
   assert.match(prompt, /daily experiment/);
   assert.match(prompt, /"classMinutes":210/);
   assert.match(prompt, /"forecast":68/);
@@ -83,6 +85,8 @@ test("creates a useful three-action local preview for the public demo", () => {
   assert.match(plan.summary, /7 recent performance records/);
   assert.match(plan.adjustment, /improving/);
   assert.match(plan.actions[0].minimumVersion, /minute start/);
+  assert.equal(plan.actions[0].steps.length, 3);
+  assert.match(plan.actions[0].finishLine, /completed/);
   assert.equal(plan.dailyExperiment.title, "Test one protected block");
   assert.match(plan.evidenceNote, /tested personal forecast/);
 });
@@ -93,7 +97,7 @@ test("reduces scope when the user reports constrained capacity", () => {
   assert.equal(plan.actions[0].effort, "moderate");
   assert.match(plan.headline, /lighter/);
   assert.equal(plan.actions[1].category, "recovery");
-  assert.match(plan.actions[1].title, /transition buffer/i);
+  assert.match(plan.actions[1].title, /screen-free reset/i);
 });
 
 test("turns a below-usual sleep signal into a cautious measurable routine experiment", () => {
@@ -144,4 +148,16 @@ test("creates a transparent personalized fallback when OpenAI is unavailable", (
   assert.ok(plan.actions.every((action) => action.minimumVersion.length > 0));
   assert.ok(plan.dailyExperiment.successMeasure.length > 0);
   assert.match(plan.evidenceNote, /calculated this plan locally/);
+});
+
+test("turns a missing priority into an executable choice instead of vague advice", () => {
+  const plan = buildPreviewDailyCoachPlan({ ...context, priority: null });
+  assert.match(plan.actions[0].title, /choose one task/i);
+  assert.equal(plan.actions[0].durationMinutes, 10);
+  assert.match(plan.actions[0].steps[1], /nearest deadline or greatest consequence/i);
+  assert.match(plan.actions[0].finishLine, /priority is saved/i);
+  assert.match(plan.actions[1].title, /start the chosen task/i);
+  assert.ok(plan.actions.every((action) => action.steps.length >= 2 && action.steps.length <= 3));
+  assert.ok(plan.actions.every((action) => action.finishLine.length > 0));
+  assert.doesNotMatch(JSON.stringify(plan.actions), /most important outcome|move .* forward|protect a transition buffer|close the loop/i);
 });

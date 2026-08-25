@@ -272,6 +272,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ai-plan-actions h4 { margin: 5px 0 6px; font-size: 11px; letter-spacing: -.015em; }
 .ai-plan-actions strong { display: block; margin-bottom: 6px; font-size: 8px; }
 .ai-plan-actions p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.ai-plan-actions ol { display: grid; gap: 7px; margin: 11px 0 0; padding: 10px 10px 10px 29px; border-radius: 7px; background: rgba(233, 236, 229, .62); color: var(--ink); font-size: 8px; line-height: 1.45; }
+.ai-plan-actions li { padding-left: 2px; }
+.ai-plan-actions li::marker { color: #a85a40; font: 750 7px var(--font-geist-mono), monospace; }
+.ai-action-finish { display: grid; gap: 3px; margin-top: 9px; color: var(--ink); font-size: 8px; line-height: 1.45; }
+.ai-action-finish b { color: #4f725f; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .07em; }
 .ai-plan-actions article small { display: grid; gap: 3px; margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(24, 56, 47, .09); color: var(--muted); font-size: 8px; line-height: 1.45; }
 .ai-plan-actions article small b { color: #4f725f; font: 750 7px var(--font-geist-mono), monospace; letter-spacing: .07em; }
 .ai-plan-adjustment { display: flex; gap: 10px; align-items: start; margin: 10px 0 0; padding: 11px 13px; border-left: 3px solid var(--orange); background: rgba(255, 255, 255, .5); }
@@ -633,6 +638,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .card-label,
 .ai-plan-actions strong,
 .ai-plan-actions p,
+.ai-plan-actions ol,
+.ai-action-finish,
 .ai-plan-actions article small,
 .ai-plan-adjustment p,
 .ai-plan-evidence,

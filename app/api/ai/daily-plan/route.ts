@@ -27,6 +27,8 @@ const planSchema = z.object({
     durationMinutes: z.number().int().min(5).max(180),
     effort: z.enum(["light", "moderate", "deep"]),
     reason: z.string().min(1).max(260),
+    steps: z.array(z.string().min(1).max(160)).min(2).max(3),
+    finishLine: z.string().min(1).max(180),
     minimumVersion: z.string().min(1).max(180),
   })).length(3),
   adjustment: z.string().min(1).max(260),
