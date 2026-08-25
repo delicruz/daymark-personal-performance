@@ -80,6 +80,8 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
   assert.match(route, /daymark_consume_ai_rate_limit/);
   assert.match(route, /Output\.object/);
+  assert.match(route, /dailyExperiment: z\.object/);
+  assert.match(route, /minimumVersion: z\.string/);
   assert.match(route, /openai\.responses\(MODEL\)/);
   assert.match(route, /OPENAI_API_KEY/);
   assert.match(route, /OPEN_API_KEY/);
@@ -90,11 +92,16 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(route, /safetyIdentifier/);
   assert.match(route, /private, no-store/);
   assert.match(coach, /Do not calculate or alter the forecast/);
-  assert.match(coach, /Do not claim that any signal causes performance/);
+  assert.match(coach, /Treat associations as clues, never causes/);
+  assert.match(coach, /averageSleepMinutes/);
+  assert.match(coach, /daily experiment/);
   assert.match(coach, /buildRecentPerformanceSummary/);
   assert.match(page, /AI DAILY COACH/);
   assert.match(page, /AUTOMATIC DAILY BRIEFING/);
   assert.match(page, /LOCAL COACH PLAN/);
+  assert.match(page, /LIFESTYLE ADJUSTMENT/);
+  assert.match(page, /MINIMUM VERSION/);
+  assert.match(page, /TRY TODAY/);
   assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);
   assert.doesNotMatch(page, /ai-coach-request|WHAT WOULD IMPROVE TODAY/);
   assert.match(page, /Calendar titles, descriptions, people and locations are excluded/);

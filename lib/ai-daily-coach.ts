@@ -13,9 +13,13 @@ export type DailyCoachContext = {
   priority: string | null;
   recentPerformance: {
     trackedDays: number;
+    trackedMorningDays: number;
     averageScore: number | null;
     latestScore: number | null;
     averageFocusedMinutes: number | null;
+    averageSleepMinutes: number | null;
+    averageEnergy: number | null;
+    averageStress: number | null;
     trend: "improving" | "steady" | "lower" | "not-enough-data";
   };
   calendar: {
@@ -35,14 +39,19 @@ export type DailyCoachPerformanceRecord = {
   entryType: "morning" | "evening";
   productivity: number | null;
   focusedMinutes?: number | null;
+  sleepMinutes?: number | null;
+  energy?: number | null;
+  stress?: number | null;
 };
 
 export type DailyCoachAction = {
+  category: "focus" | "schedule" | "recovery" | "routine";
   title: string;
   timing: string;
   durationMinutes: number;
   effort: "light" | "moderate" | "deep";
   reason: string;
+  minimumVersion: string;
 };
 
 export type DailyCoachPlan = {
@@ -50,6 +59,11 @@ export type DailyCoachPlan = {
   summary: string;
   actions: DailyCoachAction[];
   adjustment: string;
+  dailyExperiment: {
+    title: string;
+    action: string;
+    successMeasure: string;
+  };
   evidenceNote: string;
   source: "ai" | "preview" | "fallback";
   generatedAt: string;
@@ -71,12 +85,25 @@ export function buildRecentPerformanceSummary(records: DailyCoachPerformanceReco
   const recentAverage = roundedAverage(recentScores);
   const earlierAverage = roundedAverage(earlierScores);
   const difference = recentAverage != null && earlierAverage != null ? recentAverage - earlierAverage : 0;
+  const mornings = records
+    .filter((entry) => entry.entryType === "morning"
+      && entry.entryDate <= localDate
+      && (entry.sleepMinutes != null || entry.energy != null || entry.stress != null))
+    .sort((left, right) => right.entryDate.localeCompare(left.entryDate))
+    .slice(0, 7);
+  const sleepMinutes = mornings.flatMap((entry) => entry.sleepMinutes == null ? [] : [Number(entry.sleepMinutes)]);
+  const energy = mornings.flatMap((entry) => entry.energy == null ? [] : [Number(entry.energy)]);
+  const stress = mornings.flatMap((entry) => entry.stress == null ? [] : [Number(entry.stress)]);
 
   return {
     trackedDays: evenings.length,
+    trackedMorningDays: mornings.length,
     averageScore: roundedAverage(scores),
     latestScore: scores[0] ?? null,
     averageFocusedMinutes: roundedAverage(focusedMinutes),
+    averageSleepMinutes: roundedAverage(sleepMinutes),
+    averageEnergy: roundedAverage(energy),
+    averageStress: roundedAverage(stress),
     trend: evenings.length < 4 ? "not-enough-data" : difference >= 0.5 ? "improving" : difference <= -0.5 ? "lower" : "steady",
   };
 }
@@ -93,11 +120,12 @@ function formatClock(minutes: number | null) {
 
 export function buildDailyCoachPrompt(context: DailyCoachContext) {
   return [
-    "Create an automatic, realistic plan for one person for today using only the evidence below. The user has not written a request; infer the most useful suggestions from their schedule, recent recorded performance, current check-in, priority and saved goal.",
-    "Do not calculate or alter the forecast. Do not claim that any signal causes performance. Do not invent calendar events, deadlines, medical guidance, or unavailable time windows.",
-    "Use exactly three actions. Make each action concrete, kind, adjustable, and consistent with the available minutes. If capacity looks constrained, reduce scope and add recovery or buffer rather than demanding more output.",
-    "Explicitly connect at least one suggestion to calendar availability and at least one suggestion to recent recorded performance. If there is not enough performance history, say so instead of inventing a trend.",
-    "Use the supplied clock window only when it exists. The final evidence note must distinguish a personal-model forecast from a baseline or calibrating estimate.",
+    "# Goal\nCreate a practical automatic plan that helps one person make better daily choices from their Daymark evidence. The user has not written a request, so proactively select the highest-value adjustments.",
+    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action names when to do it, a realistic duration, the specific observed signal behind it, and a minimum version for a disrupted day. Include one small daily experiment with a behavior and an evening-review measure.",
+    "# Evidence rules\nUse only the supplied schedule summary, current check-in, saved priority and goal, recent performance trend, and recent sleep/energy/stress/focus averages. Compare today with the person's own recent averages when both exist. When history is insufficient, frame the action as a test and explain what to track. Treat associations as clues, never causes.",
+    "# Planning rules\nRespect available minutes and the supplied clock window. Prefer exact, low-friction behaviors over broad advice. If capacity is constrained, reduce scope, protect transitions and add recovery rather than demanding more output. Avoid repeating the same idea across actions.",
+    "# Safety\nDo not calculate or alter the forecast. Do not invent events, deadlines, diagnoses, medical guidance, employment advice or unavailable time windows. Sleep, stress and energy suggestions must remain general wellbeing and planning guidance. Do not prescribe supplements, treatment, strict diets or exercise intensity.",
+    "# Calibration\nThe evidence note distinguishes a personal-model forecast from a baseline or calibrating estimate and names important missing evidence. Keep the tone warm, direct and non-judgmental.",
     `DAYMARK_CONTEXT_JSON=${JSON.stringify(context)}`,
   ].join("\n");
 }
@@ -109,38 +137,77 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
   const focusMinutes = Math.max(20, Math.min(constrained ? 35 : 75, openLength || 45));
   const priority = context.priority ? `“${context.priority}”` : "your most important outcome";
   const firstTiming = openStart == null ? "Your clearest available block" : `From ${formatClock(openStart)}`;
+  const scheduleHeavy = (context.calendar?.scheduledMinutes ?? 0) >= 300;
+  const sleepBelowUsual = context.sleepMinutes != null && context.recentPerformance.averageSleepMinutes != null
+    ? context.sleepMinutes < context.recentPerformance.averageSleepMinutes - 45
+    : context.sleepMinutes != null && context.sleepMinutes < 360;
+  const recoveryNeeded = constrained || sleepBelowUsual || scheduleHeavy;
+  const experiment = sleepBelowUsual
+    ? {
+        title: "Protect a consistent wind-down",
+        action: "Choose a 30-minute low-stimulation wind-down window tonight and stop planned work when it begins.",
+        successMeasure: "Tomorrow, record sleep duration and morning energy; compare them with your recent averages.",
+      }
+    : scheduleHeavy
+      ? {
+          title: "Test transition buffers",
+          action: "Keep one 10-minute unscheduled buffer after a class or work stretch before beginning the next task.",
+          successMeasure: "At evening review, note whether the priority felt easier to start and record your stress score.",
+        }
+      : {
+          title: "Test one protected block",
+          action: `Run one ${focusMinutes}-minute block with notifications out of reach and one visible finish line.`,
+          successMeasure: "At evening review, record focused minutes and whether the planned finish line was completed.",
+        };
 
   return {
     headline: constrained ? "Protect quality by making today deliberately lighter." : "Turn today’s strongest opening into one clear win.",
     summary: `This ${source === "fallback" ? "local plan" : "automatic preview"} combines today’s schedule, check-in, ${context.forecast}/100 outlook and ${context.recentPerformance.trackedDays || "no"} recent performance record${context.recentPerformance.trackedDays === 1 ? "" : "s"}.`,
     actions: [
       {
+        category: "focus",
         title: `Move ${priority} forward`,
         timing: firstTiming,
         durationMinutes: focusMinutes,
         effort: constrained ? "moderate" : "deep",
         reason: constrained ? "A smaller finish line is more realistic with today’s lower available capacity." : "Your longest opening is the best place for work that needs uninterrupted attention.",
+        minimumVersion: `Complete one ${Math.max(10, Math.round(focusMinutes / 3))}-minute start and write the next step.`,
       },
       {
-        title: "Create a visible stopping point",
-        timing: "Immediately after the focus block",
+        category: recoveryNeeded ? "recovery" : "schedule",
+        title: recoveryNeeded ? "Protect a transition buffer" : "Create a visible stopping point",
+        timing: scheduleHeavy ? "After your busiest class or work stretch" : "Immediately after the focus block",
+        durationMinutes: recoveryNeeded ? 15 : 10,
+        effort: "light",
+        reason: sleepBelowUsual
+          ? "Today’s sleep is below your recent level, so a low-demand transition is more realistic than filling every open minute."
+          : scheduleHeavy
+            ? "A busy scheduled day leaves less room for task switching and recovery."
+            : "Writing the next action before switching tasks makes progress easier to resume.",
+        minimumVersion: "Step away for 5 minutes, then write the next action before switching tasks.",
+      },
+      {
+        category: "routine",
+        title: "Close the loop at evening review",
+        timing: "At the end of your planned workday",
         durationMinutes: 10,
         effort: "light",
-        reason: "Write the next action before switching tasks so progress is easy to resume.",
-      },
-      {
-        title: constrained ? "Leave recovery space" : "Review and rebalance",
-        timing: "Before the next commitment",
-        durationMinutes: constrained ? 20 : 15,
-        effort: "light",
-        reason: constrained ? "A buffer protects quality when energy is limited or stress is elevated." : "A short review lets you adjust the rest of the day without over-planning it.",
+        reason: context.recentPerformance.trackedDays < 4
+          ? "A short outcome record will make future advice more personal instead of relying on a starting baseline."
+          : "Focused minutes and an outcome score let Daymark compare today’s plan with your recent pattern.",
+        minimumVersion: "Record the outcome score and one sentence about what helped or interrupted the plan.",
       },
     ],
-    adjustment: context.recentPerformance.trend === "lower"
-      ? "Recent recorded performance is lower than the earlier tracked days, so keep the finish line smaller and protect recovery space."
-      : context.recentPerformance.trend === "improving"
-        ? "Recent recorded performance is improving; protect the routine and calendar space that make steady work possible."
-        : "Choose the smallest version of the plan that still feels meaningful, then adjust after the next commitment.",
+    adjustment: sleepBelowUsual
+      ? "Today’s sleep is below your recent level. Keep the priority, reduce optional workload, and protect a calmer transition into tonight."
+      : scheduleHeavy
+        ? "Today has a dense calendar. Protect the priority by leaving one transition unbooked instead of treating every open minute as usable focus time."
+        : context.recentPerformance.trend === "lower"
+          ? "Recent recorded performance is lower than the earlier tracked days, so keep the finish line smaller and protect recovery space."
+          : context.recentPerformance.trend === "improving"
+            ? "Recent recorded performance is improving; protect the routine and calendar space that make steady work possible."
+            : "Choose the smallest version of the plan that still feels meaningful, then adjust after the next commitment.",
+    dailyExperiment: experiment,
     evidenceNote: `${context.modelStatus === "personalized" ? "Uses your tested personal forecast as context; suggestions remain planning guidance, not a prediction." : "Uses a baseline estimate as context; personal modelling has not yet collected enough matched outcomes."}${source === "fallback" ? " OpenAI generation is temporarily unavailable, so Daymark calculated this plan locally from the same summarized signals." : ""}`,
     source,
     generatedAt: new Date().toISOString(),

@@ -21,13 +21,20 @@ const planSchema = z.object({
   headline: z.string().min(1).max(120),
   summary: z.string().min(1).max(320),
   actions: z.array(z.object({
+    category: z.enum(["focus", "schedule", "recovery", "routine"]),
     title: z.string().min(1).max(100),
     timing: z.string().min(1).max(80),
     durationMinutes: z.number().int().min(5).max(180),
     effort: z.enum(["light", "moderate", "deep"]),
     reason: z.string().min(1).max(260),
+    minimumVersion: z.string().min(1).max(180),
   })).length(3),
   adjustment: z.string().min(1).max(260),
+  dailyExperiment: z.object({
+    title: z.string().min(1).max(100),
+    action: z.string().min(1).max(240),
+    successMeasure: z.string().min(1).max(180),
+  }),
   evidenceNote: z.string().min(1).max(260),
 });
 
@@ -171,15 +178,15 @@ export async function POST(request: Request) {
       const openai = createOpenAI({ apiKey });
       const result = await generateText({
         model: openai.responses(MODEL),
-        instructions: "You are Daymark's private automatic daily planning coach. Proactively produce evidence-grounded suggestions from the supplied schedule and recorded performance signals, without asking the user to write a prompt. Do not provide medical, psychological, employment, or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
+        instructions: "You are Daymark's private daily coach: warm, pragmatic and non-judgmental. Turn the user's summarized schedule, check-in and personal history into specific adjustments they can realistically try today. State uncertainty honestly and never present an association as a cause. Do not provide medical, psychological, employment or diagnostic advice. Never reveal hidden reasoning. Follow the structured output schema exactly.",
         output: Output.object({ name: "DaymarkDailyPlan", schema: planSchema }),
         prompt: buildDailyCoachPrompt(context),
         maxRetries: 0,
         providerOptions: {
           openai: {
             store: false,
-            reasoningEffort: "low",
-            textVerbosity: "low",
+            reasoningEffort: "medium",
+            textVerbosity: "medium",
             safetyIdentifier: await safetyIdentifier(auth.userId),
           } satisfies OpenAILanguageModelResponsesOptions,
         },
