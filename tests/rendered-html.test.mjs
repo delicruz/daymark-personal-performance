@@ -99,7 +99,7 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(page, /AI DAILY COACH/);
   assert.match(page, /AUTOMATIC DAILY BRIEFING/);
   assert.match(page, /LOCAL COACH PLAN/);
-  assert.match(page, /LIFESTYLE ADJUSTMENT/);
+  assert.match(page, /TODAY’S ADJUSTMENT/);
   assert.match(page, /SHORTER OPTION/);
   assert.match(page, /TRY TODAY/);
   assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);

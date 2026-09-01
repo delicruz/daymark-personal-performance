@@ -118,15 +118,24 @@ function formatClock(minutes: number | null) {
   return `${displayHour}:${String(minute).padStart(2, "0")}${suffix}`;
 }
 
+function formatDuration(minutes: number | null) {
+  if (minutes == null) return "not recorded";
+  const safe = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safe / 60);
+  const remainder = safe % 60;
+  if (!hours) return `${remainder}m`;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
 export function buildDailyCoachPrompt(context: DailyCoachContext) {
   return [
-    "# Goal\nCreate a practical automatic plan that helps one person make better daily choices from their Daymark evidence. The user has not written a request, so proactively select the highest-value adjustments.",
-    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action uses a direct title that says what to do, names when to do it, gives a realistic duration, explains the strongest observed signal in one short sentence, and includes one short fallback for a disrupted day. Include one small daily experiment with a behavior and an evening-review measure.",
+    "# Goal\nCreate a concise plan of practical behavior changes the user can try today from their Daymark evidence. Do not give strategy, motivation or generic wellness advice.",
+    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action must contain a specific behavior, amount or duration, and timing cue. Explain the strongest observed signal in one short sentence and include one short fallback. Include one measurable daily experiment.",
     "# Evidence rules\nUse only the supplied schedule summary, current check-in, saved priority and goal, recent performance trend, and recent sleep/energy/stress/focus averages. Compare today with the person's own recent averages when both exist. When history is insufficient, frame the action as a test and explain what to track. Treat associations as clues, never causes.",
-    "# Action quality bar\nKeep each card concise enough to scan in a few seconds. Write the title as the complete instruction and start it with an action verb. If no priority is saved, tell the user to choose one; never call it their 'most important outcome' and never invent the task. Avoid abstract phrases such as 'move it forward', 'protect a buffer', 'close the loop' or 'review and rebalance'. Do not add checklists, multiple substeps or a separate completion criterion.",
-    "# Planning rules\nRespect available minutes and the supplied clock window. Prefer exact, low-friction behaviors over broad advice. If capacity is constrained, reduce scope, protect transitions and add recovery rather than demanding more output. Avoid repeating the same idea across actions.",
+    "# Practicality rules\nKeep each card concise enough to scan in a few seconds. Write the title as the complete instruction and start it with an action verb. Never recommend 'more sleep', 'more rest', 'better balance', 'adjust your routine', 'work smarter' or 'improve focus' without saying exactly what behavior changes, by how much, and when. Example: prefer 'End optional work 30 minutes earlier tonight' over 'Get more rest'. If no priority is saved, tell the user to choose one; never invent the task. Do not add checklists or multiple substeps.",
+    "# Planning rules\nRespect available minutes and the supplied clock window. Convert each relevant signal into the smallest realistic adjustment. When sleep is below the person's recent average, suggest a concrete earlier stop or wind-down change. When energy is low or stress is high, specify a short low-demand break and reduce the focus block. When the calendar is dense, name an exact transition buffer. Avoid repeating the same idea across actions.",
     "# Safety\nDo not calculate or alter the forecast. Do not invent events, deadlines, diagnoses, medical guidance, employment advice or unavailable time windows. Sleep, stress and energy suggestions must remain general wellbeing and planning guidance. Do not prescribe supplements, treatment, strict diets or exercise intensity.",
-    "# Calibration\nThe evidence note distinguishes a personal-model forecast from a baseline or calibrating estimate and names important missing evidence. Keep the tone warm, direct and non-judgmental.",
+    "# Calibration\nNever promise that an action will raise the forecast or productivity index. Present lifestyle and routine changes as tests, then name the next check-in or outcome signal to compare. The evidence note distinguishes a personal-model forecast from a baseline or calibrating estimate. Keep the tone warm, direct and non-judgmental.",
     `DAYMARK_CONTEXT_JSON=${JSON.stringify(context)}`,
   ].join("\n");
 }
@@ -144,21 +153,35 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
     ? context.sleepMinutes < context.recentPerformance.averageSleepMinutes - 45
     : context.sleepMinutes != null && context.sleepMinutes < 360;
   const recoveryNeeded = constrained || sleepBelowUsual || scheduleHeavy;
+  const energyBelowUsual = context.energy != null && context.recentPerformance.averageEnergy != null
+    ? context.energy < context.recentPerformance.averageEnergy - 0.5
+    : context.energy != null && context.energy <= 2;
+  const stressAboveUsual = context.stress != null && context.recentPerformance.averageStress != null
+    ? context.stress > context.recentPerformance.averageStress + 0.5
+    : context.stress != null && context.stress >= 4;
+  const plannedMinutes = context.plannedFocusMinutes ?? focusMinutes;
+  const reducedFocusMinutes = Math.max(25, Math.round((plannedMinutes * 0.75) / 5) * 5);
   const experiment = sleepBelowUsual
     ? {
-        title: "Protect a consistent wind-down",
-        action: "Choose a 30-minute low-stimulation wind-down window tonight and stop planned work when it begins.",
-        successMeasure: "Tomorrow, record sleep duration and morning energy; compare them with your recent averages.",
+        title: "Test a 30-minute earlier stop",
+        action: "End optional work 30 minutes earlier tonight and keep that time screen-light and low-demand.",
+        successMeasure: "Tomorrow, compare sleep duration and morning energy with your recent averages.",
       }
+    : energyBelowUsual || stressAboveUsual
+      ? {
+          title: "Test a shorter focus cycle",
+          action: `Cap the first focus block at ${focusMinutes} minutes, then take a 15-minute phone-free break.`,
+          successMeasure: "At evening review, record focused minutes, productivity and the main interruption.",
+        }
     : scheduleHeavy
       ? {
-          title: "Test transition buffers",
+          title: "Test one 10-minute transition",
           action: "Keep one 10-minute unscheduled buffer after a class or work stretch before beginning the next task.",
           successMeasure: "At evening review, note whether the priority felt easier to start and record your stress score.",
         }
       : {
-          title: "Test one protected block",
-          action: `Run one ${focusMinutes}-minute block with notifications out of reach and one visible finish line.`,
+        title: "Test one notification-free block",
+        action: `Run one ${focusMinutes}-minute block with notifications out of reach and one visible finish line.`,
           successMeasure: "At evening review, record focused minutes and whether the planned finish line was completed.",
         };
 
@@ -195,17 +218,41 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
           ? `Today’s ${context.forecast}/100 outlook supports a shorter single-task block instead of a long work session.`
           : `Your longest open block is ${openLength} minutes, leaving enough room for one uninterrupted start.`,
         minimumVersion: "Work for 15 minutes and record the next action.",
+      } : sleepBelowUsual ? {
+        category: "recovery",
+        title: "End optional work 30 minutes earlier tonight",
+        timing: "Before your usual wind-down",
+        durationMinutes: 30,
+        effort: "light",
+        reason: `You logged ${formatDuration(context.sleepMinutes)} sleep versus a ${formatDuration(context.recentPerformance.averageSleepMinutes)} recent average; test the change rather than assuming it will raise your score.`,
+        minimumVersion: "Put screens away 10 minutes earlier tonight.",
+      } : energyBelowUsual || stressAboveUsual ? {
+        category: "recovery",
+        title: "Take a 15-minute phone-free break",
+        timing: "Immediately after the focus block",
+        durationMinutes: 15,
+        effort: "light",
+        reason: energyBelowUsual
+          ? `Energy is ${context.energy}/5 versus a ${context.recentPerformance.averageEnergy}/5 recent average.`
+          : `Stress is ${context.stress}/5 versus a ${context.recentPerformance.averageStress}/5 recent average.`,
+        minimumVersion: "Step away from the screen for 5 minutes.",
+      } : scheduleHeavy ? {
+        category: "schedule",
+        title: "Leave 10 minutes unbooked after your busiest commitment",
+        timing: "After your longest class or work stretch",
+        durationMinutes: 10,
+        effort: "light",
+        reason: `${formatDuration(context.calendar?.scheduledMinutes ?? 0)} is already scheduled today, so this prevents an immediate task switch.`,
+        minimumVersion: "Leave 5 minutes before starting the next task.",
       } : {
         category: recoveryNeeded ? "recovery" : "schedule",
         title: recoveryNeeded ? "Take a 15-minute screen-free reset" : "Write the next action before switching tasks",
-        timing: scheduleHeavy ? "After your busiest class or work stretch" : "Immediately after the focus block",
+        timing: "Immediately after the focus block",
         durationMinutes: recoveryNeeded ? 15 : 10,
         effort: "light",
-        reason: sleepBelowUsual
-          ? "Today’s sleep is below your recent level, so a low-demand transition is more realistic than filling every open minute."
-          : scheduleHeavy
-            ? "A busy scheduled day leaves less room for task switching and recovery."
-            : "Writing the next action before switching tasks makes progress easier to resume.",
+        reason: recoveryNeeded
+          ? `Today’s ${context.forecast}/100 outlook supports a short reset before another demanding task.`
+          : "Writing one next action makes the task easier to resume after switching.",
         minimumVersion: "Pause for 5 minutes and write the next action.",
       },
       {
@@ -221,14 +268,16 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
       },
     ],
     adjustment: sleepBelowUsual
-      ? "Today’s sleep is below your recent level. Keep the priority, reduce optional workload, and protect a calmer transition into tonight."
+      ? "End optional work 30 minutes earlier tonight, then compare tomorrow’s sleep and energy with your recent averages."
+      : energyBelowUsual || stressAboveUsual
+        ? `Cap planned focus at ${reducedFocusMinutes} minutes today and place a 15-minute phone-free break after the first block.`
       : scheduleHeavy
-        ? "Today has a dense calendar. Protect the priority by leaving one transition unbooked instead of treating every open minute as usable focus time."
+        ? "Leave 10 minutes unbooked after your busiest commitment before starting the next task."
         : context.recentPerformance.trend === "lower"
-          ? "Recent recorded performance is lower than the earlier tracked days, so keep the finish line smaller and protect recovery space."
+          ? `Cap planned focus at ${reducedFocusMinutes} minutes today; complete one priority, then record the outcome before adding more work.`
           : context.recentPerformance.trend === "improving"
-            ? "Recent recorded performance is improving; protect the routine and calendar space that make steady work possible."
-            : "Choose the smallest version of the plan that still feels meaningful, then adjust after the next commitment.",
+            ? `Repeat one ${focusMinutes}-minute notification-free block in your longest opening; do not add a second block until it is complete.`
+            : `Run one ${focusMinutes}-minute notification-free block, then record focused minutes and the outcome tonight.`,
     dailyExperiment: experiment,
     evidenceNote: `${context.modelStatus === "personalized" ? "Uses your tested personal forecast as context; suggestions remain planning guidance, not a prediction." : "Uses a baseline estimate as context; personal modelling has not yet collected enough matched outcomes."}${source === "fallback" ? " OpenAI generation is temporarily unavailable, so Daymark calculated this plan locally from the same summarized signals." : ""}`,
     source,

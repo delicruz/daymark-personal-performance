@@ -29,11 +29,11 @@ const planSchema = z.object({
     reason: z.string().min(1).max(180),
     minimumVersion: z.string().min(1).max(130),
   })).length(3),
-  adjustment: z.string().min(1).max(260),
+  adjustment: z.string().min(1).max(220),
   dailyExperiment: z.object({
     title: z.string().min(1).max(100),
-    action: z.string().min(1).max(240),
-    successMeasure: z.string().min(1).max(180),
+    action: z.string().min(1).max(200),
+    successMeasure: z.string().min(1).max(160),
   }),
   evidenceNote: z.string().min(1).max(260),
 });
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
           openai: {
             store: false,
             reasoningEffort: "medium",
-            textVerbosity: "medium",
+            textVerbosity: "low",
             safetyIdentifier: await safetyIdentifier(auth.userId),
           } satisfies OpenAILanguageModelResponsesOptions,
         },

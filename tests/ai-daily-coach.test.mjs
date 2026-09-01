@@ -40,14 +40,16 @@ const context = {
 
 test("builds a grounded automatic prompt from schedules and recorded performance", () => {
   const prompt = buildDailyCoachPrompt(context);
-  assert.match(prompt, /user has not written a request/);
+  assert.match(prompt, /practical behavior changes/);
   assert.match(prompt, /Do not calculate or alter the forecast/);
   assert.match(prompt, /three distinct actions/);
   assert.match(prompt, /recent performance trend/);
   assert.match(prompt, /short fallback/);
   assert.match(prompt, /scan in a few seconds/);
-  assert.match(prompt, /never call it their 'most important outcome'/);
+  assert.match(prompt, /never invent the task/);
   assert.match(prompt, /daily experiment/);
+  assert.match(prompt, /End optional work 30 minutes earlier tonight/);
+  assert.match(prompt, /Never promise that an action will raise/);
   assert.match(prompt, /"classMinutes":210/);
   assert.match(prompt, /"forecast":68/);
   assert.match(prompt, /"averageScore":7.4/);
@@ -83,9 +85,9 @@ test("creates a useful three-action local preview for the public demo", () => {
   assert.match(plan.actions[0].timing, /1:00pm/);
   assert.match(plan.actions[0].title, /Draft assignment outline/);
   assert.match(plan.summary, /7 recent performance records/);
-  assert.match(plan.adjustment, /improving/);
+  assert.match(plan.adjustment, /notification-free block/);
   assert.match(plan.actions[0].minimumVersion, /Start with 25 minutes/);
-  assert.equal(plan.dailyExperiment.title, "Test one protected block");
+  assert.equal(plan.dailyExperiment.title, "Test one notification-free block");
   assert.match(plan.evidenceNote, /tested personal forecast/);
 });
 
@@ -95,15 +97,17 @@ test("reduces scope when the user reports constrained capacity", () => {
   assert.equal(plan.actions[0].effort, "moderate");
   assert.match(plan.headline, /lighter/);
   assert.equal(plan.actions[1].category, "recovery");
-  assert.match(plan.actions[1].title, /screen-free reset/i);
+  assert.match(plan.actions[1].title, /phone-free break/i);
 });
 
 test("turns a below-usual sleep signal into a cautious measurable routine experiment", () => {
   const plan = buildPreviewDailyCoachPlan({ ...context, sleepMinutes: 330 });
-  assert.equal(plan.dailyExperiment.title, "Protect a consistent wind-down");
-  assert.match(plan.adjustment, /sleep is below your recent level/i);
+  assert.equal(plan.dailyExperiment.title, "Test a 30-minute earlier stop");
+  assert.match(plan.adjustment, /30 minutes earlier/i);
   assert.equal(plan.actions[1].category, "recovery");
-  assert.match(plan.dailyExperiment.successMeasure, /record sleep duration and morning energy/i);
+  assert.match(plan.actions[1].title, /End optional work 30 minutes earlier/i);
+  assert.match(plan.actions[1].reason, /5h 30m sleep versus a 7h 10m recent average/i);
+  assert.match(plan.dailyExperiment.successMeasure, /compare sleep duration and morning energy/i);
 });
 
 test("protects transition time when the calendar is dense", () => {
@@ -111,10 +115,10 @@ test("protects transition time when the calendar is dense", () => {
     ...context,
     calendar: { ...context.calendar, scheduledMinutes: 390, classMinutes: 210, workMinutes: 180 },
   });
-  assert.equal(plan.dailyExperiment.title, "Test transition buffers");
-  assert.match(plan.adjustment, /dense calendar/i);
-  assert.equal(plan.actions[1].category, "recovery");
-  assert.match(plan.actions[1].reason, /busy scheduled day/i);
+  assert.equal(plan.dailyExperiment.title, "Test one 10-minute transition");
+  assert.match(plan.adjustment, /10 minutes unbooked/i);
+  assert.equal(plan.actions[1].category, "schedule");
+  assert.match(plan.actions[1].reason, /6h 30m is already scheduled/i);
 });
 
 test("asks for a small outcome record instead of inventing a trend", () => {
@@ -155,4 +159,13 @@ test("turns a missing priority into an executable choice instead of vague advice
   assert.match(plan.actions[1].title, /start the chosen task/i);
   assert.ok(plan.actions.every((action) => action.minimumVersion.length <= 130));
   assert.doesNotMatch(JSON.stringify(plan.actions), /most important outcome|move .* forward|protect a transition buffer|close the loop/i);
+  assert.doesNotMatch(JSON.stringify(plan), /increase sleep|increase rest|adjust your routine|work smarter/i);
+});
+
+test("turns low energy into a specific shorter cycle and measurable break", () => {
+  const plan = buildPreviewDailyCoachPlan({ ...context, energy: 2 });
+  assert.match(plan.adjustment, /Cap planned focus at 90 minutes/i);
+  assert.match(plan.adjustment, /15-minute phone-free break/i);
+  assert.equal(plan.dailyExperiment.title, "Test a shorter focus cycle");
+  assert.match(plan.actions[1].reason, /Energy is 2\/5 versus a 3.6\/5 recent average/i);
 });
