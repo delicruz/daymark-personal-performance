@@ -88,7 +88,8 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(route, /OPEN_API_KEY/);
   assert.match(route, /createOpenAI\(\{ apiKey \}\)/);
   assert.match(route, /maxRetries: 0/);
-  assert.match(route, /buildLocalDailyCoachPlan\(context, "fallback"\)/);
+  assert.match(route, /creditsUnavailable/);
+  assert.match(route, /X-Daymark-Coach-Fallback/);
   assert.match(route, /store: false/);
   assert.match(route, /safetyIdentifier/);
   assert.match(route, /private, no-store/);
@@ -99,11 +100,13 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(coach, /buildRecentPerformanceSummary/);
   assert.match(page, /AI DAILY COACH/);
   assert.match(page, /AUTOMATIC DAILY BRIEFING/);
-  assert.match(page, /LOCAL COACH PLAN/);
+  assert.match(page, /EVIDENCE-BASED BACKUP/);
+  assert.match(page, /AI STATUS/);
   assert.match(page, /TODAY’S ADJUSTMENT/);
   assert.match(page, /SHORTER OPTION/);
   assert.match(page, /TRY TODAY/);
-  assert.match(page, /daymark-ai-daily-plan:v7/);
+  assert.match(page, /daymark-ai-daily-plan:v8/);
+  assert.match(page, /nextPlan\.source === "ai"/);
   assert.match(styles, /\.ai-plan-heading h3 \{[^}]*font-size: 14px;[^}]*line-height: 1\.25;/);
   assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);
   assert.doesNotMatch(page, /ai-coach-request|WHAT WOULD IMPROVE TODAY/);

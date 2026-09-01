@@ -65,6 +65,7 @@ export type DailyCoachPlan = {
     successMeasure: string;
   };
   evidenceNote: string;
+  availabilityNote?: string;
   source: "ai" | "preview" | "fallback";
   generatedAt: string;
 };
@@ -140,7 +141,11 @@ export function buildDailyCoachPrompt(context: DailyCoachContext) {
   ].join("\n");
 }
 
-export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "preview" | "fallback" = "preview"): DailyCoachPlan {
+export function buildLocalDailyCoachPlan(
+  context: DailyCoachContext,
+  source: "preview" | "fallback" = "preview",
+  availabilityNote?: string,
+): DailyCoachPlan {
   const constrained = (context.energy != null && context.energy <= 2) || (context.stress != null && context.stress >= 4) || context.forecast < 55;
   const openStart = context.calendar?.longestOpenStartMinute ?? null;
   const openLength = context.calendar?.longestOpenMinutes ?? context.plannedFocusMinutes ?? 60;
@@ -313,6 +318,9 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
             : `Run one ${focusMinutes}-minute notification-free block, then record focused minutes and the outcome tonight.`,
     dailyExperiment: experiment,
     evidenceNote: `${context.modelStatus === "personalized" ? "Uses your tested personal forecast as context; suggestions remain planning guidance, not a prediction." : "Uses a baseline estimate as context; personal modelling has not yet collected enough matched outcomes."}${source === "fallback" ? " OpenAI generation is temporarily unavailable, so Daymark calculated this plan locally from the same summarized signals." : ""}`,
+    availabilityNote: source === "fallback"
+      ? availabilityNote ?? "AI suggestions are temporarily paused. This evidence-based backup was calculated locally and does not use GPT."
+      : undefined,
     source,
     generatedAt: new Date().toISOString(),
   };

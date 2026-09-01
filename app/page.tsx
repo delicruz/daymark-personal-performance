@@ -473,7 +473,7 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
     } : null,
   }), [calendar, data.forecast, data.forecastModel.rangeHigh, data.forecastModel.rangeLow, data.forecastModel.status, data.profile?.goal, morning, priority, recentPerformance, todayKey]);
   const contextFingerprint = useMemo(() => JSON.stringify(context), [context]);
-  const cacheKey = `daymark-ai-daily-plan:v7:${data.user.id}:${todayKey}`;
+  const cacheKey = `daymark-ai-daily-plan:v8:${data.user.id}:${todayKey}`;
 
   const createPlan = useCallback(async (force = false) => {
     if (!ready) return;
@@ -488,7 +488,7 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
     if (!force) {
       try {
         const cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? "null") as { fingerprint?: string; plan?: DailyCoachPlan } | null;
-        if (cached?.fingerprint === contextFingerprint && cached.plan) {
+        if (cached?.fingerprint === contextFingerprint && cached.plan?.source === "ai") {
           setPlan(cached.plan);
           setLoading(false);
           return;
@@ -506,7 +506,11 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
       if (generation !== generationRef.current) return;
       const nextPlan = payload as DailyCoachPlan;
       setPlan(nextPlan);
-      sessionStorage.setItem(cacheKey, JSON.stringify({ fingerprint: contextFingerprint, plan: nextPlan }));
+      if (nextPlan.source === "ai") {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ fingerprint: contextFingerprint, plan: nextPlan }));
+      } else {
+        sessionStorage.removeItem(cacheKey);
+      }
     } catch (caught) {
       if (generation === generationRef.current) setError(caught instanceof Error ? caught.message : "The AI coach could not create a plan.");
     } finally {
@@ -549,7 +553,8 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
         </div>
       </div>
       {plan && <div className="ai-plan" aria-live="polite">
-        <div className="ai-plan-heading"><span>{plan.source === "ai" ? "AI-GENERATED PLAN" : plan.source === "fallback" ? "LOCAL COACH PLAN" : "DEMO PLAN PREVIEW"}</span><h3>{plan.headline}</h3><p>{plan.summary}</p></div>
+        {plan.availabilityNote && <p className="ai-plan-availability" role="status"><b>AI STATUS</b><span>{plan.availabilityNote}</span><em>Select Refresh suggestions after service is restored.</em></p>}
+        <div className="ai-plan-heading"><span>{plan.source === "ai" ? "AI-GENERATED PLAN" : plan.source === "fallback" ? "EVIDENCE-BASED BACKUP" : "DEMO PLAN PREVIEW"}</span><h3>{plan.headline}</h3><p>{plan.summary}</p></div>
         <div className="ai-plan-actions">{plan.actions.map((action, index) => <article key={`${action.title}-${index}`}><b>0{index + 1}</b><div><span>{action.category} · {action.effort} · {action.durationMinutes} min</span><h4>{action.title}</h4><strong>{action.timing}</strong><p>{action.reason}</p><small><b>SHORTER OPTION</b>{action.minimumVersion}</small></div></article>)}</div>
         <div className="ai-plan-adjustment"><span>↗</span><p><small>TODAY’S ADJUSTMENT</small><strong>{plan.adjustment}</strong></p></div>
         <div className="ai-plan-experiment"><span>◇</span><div><small>TRY TODAY</small><strong>{plan.dailyExperiment.title}</strong><p>{plan.dailyExperiment.action}</p><em>Measure: {plan.dailyExperiment.successMeasure}</em></div></div>

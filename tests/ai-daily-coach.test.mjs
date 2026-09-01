@@ -152,7 +152,19 @@ test("creates a transparent personalized fallback when OpenAI is unavailable", (
   assert.match(plan.actions[0].title, /Draft assignment outline/);
   assert.ok(plan.actions.every((action) => action.minimumVersion.length > 0));
   assert.ok(plan.dailyExperiment.successMeasure.length > 0);
+  assert.match(plan.availabilityNote, /does not use GPT/i);
   assert.match(plan.evidenceNote, /calculated this plan locally/);
+});
+
+test("explains a credit fallback without presenting it as an AI plan", () => {
+  const plan = buildLocalDailyCoachPlan(
+    context,
+    "fallback",
+    "AI suggestions are paused for this site because API credits are unavailable. This evidence-based backup was calculated locally and does not use GPT.",
+  );
+  assert.equal(plan.source, "fallback");
+  assert.match(plan.availabilityNote, /API credits are unavailable/i);
+  assert.match(plan.availabilityNote, /does not use GPT/i);
 });
 
 test("turns a missing priority into an executable choice instead of vague advice", () => {

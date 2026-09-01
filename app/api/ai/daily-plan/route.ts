@@ -195,8 +195,19 @@ export async function POST(request: Request) {
 
       return jsonResponse({ ...result.output, source: "ai", generatedAt: new Date().toISOString() }, 200, { "X-Daymark-Coach-Mode": "openai" });
     } catch (error) {
-      console.error("[daymark-ai] OpenAI generation failed; serving a local coach plan", error instanceof Error ? error.message : "Unknown error");
-      return jsonResponse(buildLocalDailyCoachPlan(context, "fallback"), 200, { "X-Daymark-Coach-Mode": "local-fallback" });
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const creditsUnavailable = /no credits remaining|insufficient_quota|billing/i.test(message);
+      console.error("[daymark-ai] OpenAI generation failed; serving a local coach plan", message);
+      return jsonResponse(buildLocalDailyCoachPlan(
+        context,
+        "fallback",
+        creditsUnavailable
+          ? "AI suggestions are paused for this site because API credits are unavailable. This evidence-based backup was calculated locally and does not use GPT."
+          : "AI suggestions are temporarily unavailable. This evidence-based backup was calculated locally and does not use GPT.",
+      ), 200, {
+        "X-Daymark-Coach-Mode": "local-fallback",
+        "X-Daymark-Coach-Fallback": creditsUnavailable ? "credits" : "provider",
+      });
     }
   } catch (error) {
     console.error("[daymark-ai] daily plan failed", error instanceof Error ? error.message : "Unknown error");
