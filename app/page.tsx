@@ -473,7 +473,7 @@ function AiDailyCoach({ data, authenticated, ready, todayKey }: { data: DaymarkD
     } : null,
   }), [calendar, data.forecast, data.forecastModel.rangeHigh, data.forecastModel.rangeLow, data.forecastModel.status, data.profile?.goal, morning, priority, recentPerformance, todayKey]);
   const contextFingerprint = useMemo(() => JSON.stringify(context), [context]);
-  const cacheKey = `daymark-ai-daily-plan:v6:${data.user.id}:${todayKey}`;
+  const cacheKey = `daymark-ai-daily-plan:v7:${data.user.id}:${todayKey}`;
 
   const createPlan = useCallback(async (force = false) => {
     if (!ready) return;

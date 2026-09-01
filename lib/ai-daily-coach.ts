@@ -130,10 +130,10 @@ function formatDuration(minutes: number | null) {
 export function buildDailyCoachPrompt(context: DailyCoachContext) {
   return [
     "# Goal\nCreate a concise plan of practical behavior changes the user can try today from their Daymark evidence. Do not give strategy, motivation or generic wellness advice.",
-    "# Success criteria\nProvide three distinct actions covering the most relevant areas among focus, schedule, recovery and routine. Every action must contain a specific behavior, amount or duration, and timing cue. Explain the strongest observed signal in one short sentence and include one short fallback. Include one measurable daily experiment.",
+    "# Success criteria\nProvide three distinct actions that solve three different decisions across the most relevant areas among focus, schedule, recovery and routine. Every action must contain a specific behavior, amount or duration, and timing cue. Explain the strongest observed signal in one short sentence and include one short fallback. Include one measurable daily experiment.",
     "# Evidence rules\nUse only the supplied schedule summary, current check-in, saved priority and goal, recent performance trend, and recent sleep/energy/stress/focus averages. Compare today with the person's own recent averages when both exist. When history is insufficient, frame the action as a test and explain what to track. Treat associations as clues, never causes.",
     "# Practicality rules\nKeep each card concise enough to scan in a few seconds. Write the title as the complete instruction and start it with an action verb. Never recommend 'more sleep', 'more rest', 'better balance', 'adjust your routine', 'work smarter' or 'improve focus' without saying exactly what behavior changes, by how much, and when. Example: prefer 'End optional work 30 minutes earlier tonight' over 'Get more rest'. If no priority is saved, tell the user to choose one; never invent the task. Do not add checklists or multiple substeps.",
-    "# Planning rules\nRespect available minutes and the supplied clock window. Convert each relevant signal into the smallest realistic adjustment. When sleep is below the person's recent average, suggest a concrete earlier stop or wind-down change. When energy is low or stress is high, specify a short low-demand break and reduce the focus block. When the calendar is dense, name an exact transition buffer. Avoid repeating the same idea across actions.",
+    "# Planning rules\nRespect available minutes and the supplied clock window. Convert each relevant signal into the smallest realistic adjustment. When sleep is below the person's recent average, suggest a concrete earlier stop or wind-down change. When energy is low or stress is high, specify a short low-demand break and reduce the focus block. When the calendar is dense, name an exact transition buffer. When planned focus is meaningfully above the person's recent completed-focus average, propose a realistic cap and quote both numbers. If no priority is saved, only one action may cover choosing or starting a task; use the other actions for schedule, recovery, workload or end-of-day learning. Do not repeat a focus instruction in different words.",
     "# Safety\nDo not calculate or alter the forecast. Do not invent events, deadlines, diagnoses, medical guidance, employment advice or unavailable time windows. Sleep, stress and energy suggestions must remain general wellbeing and planning guidance. Do not prescribe supplements, treatment, strict diets or exercise intensity.",
     "# Calibration\nNever promise that an action will raise the forecast or productivity index. Present lifestyle and routine changes as tests, then name the next check-in or outcome signal to compare. The evidence note distinguishes a personal-model forecast from a baseline or calibrating estimate. Keep the tone warm, direct and non-judgmental.",
     `DAYMARK_CONTEXT_JSON=${JSON.stringify(context)}`,
@@ -161,6 +161,14 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
     : context.stress != null && context.stress >= 4;
   const plannedMinutes = context.plannedFocusMinutes ?? focusMinutes;
   const reducedFocusMinutes = Math.max(25, Math.round((plannedMinutes * 0.75) / 5) * 5);
+  const recentFocusMinutes = context.recentPerformance.averageFocusedMinutes;
+  const focusTargetAboveRecent = context.plannedFocusMinutes != null
+    && recentFocusMinutes != null
+    && context.recentPerformance.trackedDays >= 3
+    && context.plannedFocusMinutes >= recentFocusMinutes + Math.max(20, recentFocusMinutes * 0.2);
+  const realisticFocusMinutes = recentFocusMinutes == null
+    ? reducedFocusMinutes
+    : Math.max(25, Math.round(recentFocusMinutes / 5) * 5);
   const experiment = sleepBelowUsual
     ? {
         title: "Test a 30-minute earlier stop",
@@ -179,15 +187,40 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
           action: "Keep one 10-minute unscheduled buffer after a class or work stretch before beginning the next task.",
           successMeasure: "At evening review, note whether the priority felt easier to start and record your stress score.",
         }
+      : focusTargetAboveRecent
+        ? {
+            title: "Test a realistic focus target",
+            action: `Cap today’s focus target at ${formatDuration(realisticFocusMinutes)}, close to your recent completed average.`,
+            successMeasure: "Tonight, compare planned focus with completed focus and record the outcome score.",
+          }
       : {
         title: "Test one notification-free block",
         action: `Run one ${focusMinutes}-minute block with notifications out of reach and one visible finish line.`,
           successMeasure: "At evening review, record focused minutes and whether the planned finish line was completed.",
         };
 
+  const headline = sleepBelowUsual
+    ? "Finish earlier tonight and protect one focused block."
+    : energyBelowUsual || stressAboveUsual
+      ? "Shorten today’s work cycle and add a real break."
+      : scheduleHeavy
+        ? "Use one open block and protect the next transition."
+        : constrained
+          ? "Protect quality by making today deliberately lighter."
+          : focusTargetAboveRecent
+            ? "Match today’s focus target to your recent pace."
+            : !savedPriority
+              ? "Choose one priority before committing your open block."
+              : "Use today’s clearest opening for one defined result.";
+  const summary = context.plannedFocusMinutes != null && recentFocusMinutes != null
+    ? `You planned ${formatDuration(context.plannedFocusMinutes)} of focus; your recent completed average is ${formatDuration(recentFocusMinutes)} across ${context.recentPerformance.trackedDays} outcome records.`
+    : context.calendar
+      ? `You have ${formatDuration(context.calendar.scheduledMinutes)} scheduled and a ${formatDuration(context.calendar.longestOpenMinutes)} open block; this plan uses today’s ${context.forecast}/100 outlook.`
+      : `This ${source === "fallback" ? "local plan" : "automatic preview"} uses today’s check-in, ${context.forecast}/100 outlook and ${context.recentPerformance.trackedDays || "no"} recent outcome record${context.recentPerformance.trackedDays === 1 ? "" : "s"}.`;
+
   return {
-    headline: constrained ? "Protect quality by making today deliberately lighter." : "Turn today’s strongest opening into one clear win.",
-    summary: `This ${source === "fallback" ? "local plan" : "automatic preview"} combines today’s schedule, check-in, ${context.forecast}/100 outlook and ${context.recentPerformance.trackedDays || "no"} recent performance record${context.recentPerformance.trackedDays === 1 ? "" : "s"}.`,
+    headline,
+    summary,
     actions: [
       savedPriority ? {
         category: "focus",
@@ -208,17 +241,7 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         reason: "No priority is saved, so Daymark needs one concrete task before it can recommend what to work on.",
         minimumVersion: "Save the task with the nearest deadline.",
       },
-      !savedPriority ? {
-        category: "focus",
-        title: `Start the chosen task with a ${focusMinutes}-minute sprint`,
-        timing: "Immediately after choosing the priority",
-        durationMinutes: focusMinutes,
-        effort: constrained ? "moderate" : "deep",
-        reason: constrained
-          ? `Today’s ${context.forecast}/100 outlook supports a shorter single-task block instead of a long work session.`
-          : `Your longest open block is ${openLength} minutes, leaving enough room for one uninterrupted start.`,
-        minimumVersion: "Work for 15 minutes and record the next action.",
-      } : sleepBelowUsual ? {
+      sleepBelowUsual ? {
         category: "recovery",
         title: "End optional work 30 minutes earlier tonight",
         timing: "Before your usual wind-down",
@@ -244,6 +267,14 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         effort: "light",
         reason: `${formatDuration(context.calendar?.scheduledMinutes ?? 0)} is already scheduled today, so this prevents an immediate task switch.`,
         minimumVersion: "Leave 5 minutes before starting the next task.",
+      } : focusTargetAboveRecent ? {
+        category: "schedule",
+        title: `Cap today’s focus target at ${formatDuration(realisticFocusMinutes)}`,
+        timing: "Before starting the first work block",
+        durationMinutes: realisticFocusMinutes,
+        effort: "moderate",
+        reason: `You planned ${formatDuration(context.plannedFocusMinutes)}; your recent completed average is ${formatDuration(recentFocusMinutes)} across ${context.recentPerformance.trackedDays} outcome records.`,
+        minimumVersion: "Plan one 45-minute block and record the completed minutes.",
       } : {
         category: recoveryNeeded ? "recovery" : "schedule",
         title: recoveryNeeded ? "Take a 15-minute screen-free reset" : "Write the next action before switching tasks",
@@ -257,14 +288,14 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
       },
       {
         category: "routine",
-        title: "Record three facts in the evening review",
+        title: "Close work in 5 minutes and set tomorrow’s first task",
         timing: "At the end of your planned workday",
         durationMinutes: 5,
         effort: "light",
         reason: context.recentPerformance.trackedDays < 4
           ? "A short outcome record will make future advice more personal instead of relying on a starting baseline."
-          : "Focused minutes and an outcome score let Daymark compare today’s plan with your recent pattern.",
-        minimumVersion: "Save the outcome score and one short note.",
+          : `You have ${context.recentPerformance.trackedDays} outcome records; today’s completed focus and score keep the comparison current.`,
+        minimumVersion: "Save today’s outcome score and tomorrow’s first task.",
       },
     ],
     adjustment: sleepBelowUsual
@@ -273,6 +304,8 @@ export function buildLocalDailyCoachPlan(context: DailyCoachContext, source: "pr
         ? `Cap planned focus at ${reducedFocusMinutes} minutes today and place a 15-minute phone-free break after the first block.`
       : scheduleHeavy
         ? "Leave 10 minutes unbooked after your busiest commitment before starting the next task."
+        : focusTargetAboveRecent
+          ? `Cap today’s focus target at ${formatDuration(realisticFocusMinutes)}, then compare it with completed focus tonight.`
         : context.recentPerformance.trend === "lower"
           ? `Cap planned focus at ${reducedFocusMinutes} minutes today; complete one priority, then record the outcome before adding more work.`
           : context.recentPerformance.trend === "improving"

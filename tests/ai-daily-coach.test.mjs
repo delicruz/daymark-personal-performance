@@ -50,6 +50,8 @@ test("builds a grounded automatic prompt from schedules and recorded performance
   assert.match(prompt, /daily experiment/);
   assert.match(prompt, /End optional work 30 minutes earlier tonight/);
   assert.match(prompt, /Never promise that an action will raise/);
+  assert.match(prompt, /only one action may cover choosing or starting a task/);
+  assert.match(prompt, /Do not repeat a focus instruction/);
   assert.match(prompt, /"classMinutes":210/);
   assert.match(prompt, /"forecast":68/);
   assert.match(prompt, /"averageScore":7.4/);
@@ -84,10 +86,11 @@ test("creates a useful three-action local preview for the public demo", () => {
   assert.equal(plan.actions[0].durationMinutes, 75);
   assert.match(plan.actions[0].timing, /1:00pm/);
   assert.match(plan.actions[0].title, /Draft assignment outline/);
-  assert.match(plan.summary, /7 recent performance records/);
-  assert.match(plan.adjustment, /notification-free block/);
+  assert.match(plan.summary, /planned 2h of focus/i);
+  assert.match(plan.summary, /recent completed average is 1h 36m/i);
+  assert.match(plan.adjustment, /1h 35m/i);
   assert.match(plan.actions[0].minimumVersion, /Start with 25 minutes/);
-  assert.equal(plan.dailyExperiment.title, "Test one notification-free block");
+  assert.equal(plan.dailyExperiment.title, "Test a realistic focus target");
   assert.match(plan.evidenceNote, /tested personal forecast/);
 });
 
@@ -95,7 +98,7 @@ test("reduces scope when the user reports constrained capacity", () => {
   const plan = buildPreviewDailyCoachPlan({ ...context, forecast: 48, energy: 2, stress: 4 });
   assert.equal(plan.actions[0].durationMinutes, 35);
   assert.equal(plan.actions[0].effort, "moderate");
-  assert.match(plan.headline, /lighter/);
+  assert.match(plan.headline, /shorten today’s work cycle/i);
   assert.equal(plan.actions[1].category, "recovery");
   assert.match(plan.actions[1].title, /phone-free break/i);
 });
@@ -145,7 +148,7 @@ test("creates a transparent personalized fallback when OpenAI is unavailable", (
   const plan = buildLocalDailyCoachPlan(context, "fallback");
   assert.equal(plan.source, "fallback");
   assert.equal(plan.actions.length, 3);
-  assert.match(plan.summary, /local plan/);
+  assert.match(plan.summary, /recent completed average/i);
   assert.match(plan.actions[0].title, /Draft assignment outline/);
   assert.ok(plan.actions.every((action) => action.minimumVersion.length > 0));
   assert.ok(plan.dailyExperiment.successMeasure.length > 0);
@@ -156,10 +159,29 @@ test("turns a missing priority into an executable choice instead of vague advice
   const plan = buildPreviewDailyCoachPlan({ ...context, priority: null });
   assert.match(plan.actions[0].title, /choose one task/i);
   assert.equal(plan.actions[0].durationMinutes, 10);
-  assert.match(plan.actions[1].title, /start the chosen task/i);
+  assert.match(plan.actions[1].title, /cap today’s focus target at 1h 35m/i);
+  assert.match(plan.actions[1].reason, /planned 2h/i);
+  assert.match(plan.actions[1].reason, /recent completed average is 1h 36m/i);
+  assert.match(plan.actions[2].title, /set tomorrow’s first task/i);
+  assert.doesNotMatch(plan.actions[1].title, /start the chosen task/i);
   assert.ok(plan.actions.every((action) => action.minimumVersion.length <= 130));
   assert.doesNotMatch(JSON.stringify(plan.actions), /most important outcome|move .* forward|protect a transition buffer|close the loop/i);
   assert.doesNotMatch(JSON.stringify(plan), /increase sleep|increase rest|adjust your routine|work smarter/i);
+});
+
+test("uses a different measured signal for every card when no priority is saved", () => {
+  const plan = buildPreviewDailyCoachPlan({
+    ...context,
+    priority: null,
+    recentPerformance: { ...context.recentPerformance, trackedDays: 6, averageFocusedMinutes: 80 },
+  });
+  assert.equal(plan.actions[0].category, "focus");
+  assert.equal(plan.actions[1].category, "schedule");
+  assert.equal(plan.actions[2].category, "routine");
+  assert.match(plan.headline, /recent pace/i);
+  assert.match(plan.summary, /recent completed average is 1h 20m across 6 outcome records/i);
+  assert.match(plan.actions[1].title, /1h 20m/i);
+  assert.match(plan.adjustment, /compare it with completed focus tonight/i);
 });
 
 test("turns low energy into a specific shorter cycle and measurable break", () => {

@@ -72,10 +72,11 @@ test("keeps persistent records scoped to an authenticated and rate-limited user"
 });
 
 test("keeps AI planning authenticated, rate limited and separate from the prediction model", async () => {
-  const [route, coach, page] = await Promise.all([
+  const [route, coach, page, styles] = await Promise.all([
     readFile(new URL("../app/api/ai/daily-plan/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai-daily-coach.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(route, /supabase\.auth\.getUser\(accessToken\)/);
   assert.match(route, /daymark_consume_ai_rate_limit/);
@@ -102,6 +103,8 @@ test("keeps AI planning authenticated, rate limited and separate from the predic
   assert.match(page, /TODAY’S ADJUSTMENT/);
   assert.match(page, /SHORTER OPTION/);
   assert.match(page, /TRY TODAY/);
+  assert.match(page, /daymark-ai-daily-plan:v7/);
+  assert.match(styles, /\.ai-plan-heading h3 \{[^}]*font-size: 14px;[^}]*line-height: 1\.25;/);
   assert.match(page, /JSON\.stringify\(\{ localDate: todayKey \}\)/);
   assert.doesNotMatch(page, /ai-coach-request|WHAT WOULD IMPROVE TODAY/);
   assert.match(page, /Calendar titles, descriptions, people and locations are excluded/);
