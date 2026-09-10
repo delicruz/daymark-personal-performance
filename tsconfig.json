@@ -37,11 +37,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "db",
-    "examples",
-    "worker",
-    "drizzle.config.ts",
-    "cloudflare-env.d.ts"
+    "node_modules"
   ]
 }

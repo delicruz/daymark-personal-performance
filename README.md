@@ -1,8 +1,7 @@
-# vinext-starter
+# Daymark Personal Performance
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Daymark is a personal performance dashboard that combines daily check-ins,
+calendar commitments, outcome tracking, and an AI daily coach.
 
 ## Prerequisites
 
@@ -16,15 +15,8 @@ npm run dev
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `vite.config.ts` provides the local vinext and Cloudflare build configuration
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example that requires separate runtime configuration
-- `drizzle.config.ts` supports local migration generation when needed
+Create `.env.local` from `.env.example`, then add the required Supabase and
+OpenAI configuration.
 
 ## Supabase Auth
 
@@ -63,11 +55,5 @@ the affected environment.
 ## Useful Commands
 
 - `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+- `npm run build`: create a production Next.js build
+- `npm test`: build Daymark and run the model, calendar, insight, and UI tests
